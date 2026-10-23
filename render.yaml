@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: mt5-monitor
+    runtime: docker
+    plan: starter
+    healthCheckPath: /healthz
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DASHBOARD_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: PROVIDER
+        value: push
+      - key: INGEST_TOKEN
+        generateValue: true
+      - key: EXPECTED_ACCOUNTS
+        value: "15"
+      - key: TIMEZONE
+        value: Europe/London

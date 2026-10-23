@@ -1,0 +1,8 @@
+{
+  "timezone": "Europe/London",
+  "accounts": [
+    { "id": "METAAPI-ACCOUNT-ID-1", "name": "Gold 01" },
+    { "id": "METAAPI-ACCOUNT-ID-2", "name": "USDJPY 01" },
+    { "id": "METAAPI-ACCOUNT-ID-3", "name": "GBPUSD 01", "group": "gbpusd" }
+  ]
+}

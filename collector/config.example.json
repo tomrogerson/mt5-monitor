@@ -1,0 +1,12 @@
+{
+  "server_url": "https://YOUR-APP.onrender.com",
+  "token": "the same value as INGEST_TOKEN on the server",
+  "interval_seconds": 2,
+  "timezone": "Europe/London",
+  "terminals": [
+    { "name": "Gold 01",   "path": "C:\\MT5\\Gold01\\terminal64.exe" },
+    { "name": "Gold 02",   "path": "C:\\MT5\\Gold02\\terminal64.exe" },
+    { "name": "USDJPY 01", "path": "C:\\MT5\\USDJPY01\\terminal64.exe" },
+    { "name": "GBPUSD 01", "path": "C:\\MT5\\GBPUSD01\\terminal64.exe" }
+  ]
+}
