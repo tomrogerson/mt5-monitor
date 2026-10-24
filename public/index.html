@@ -129,6 +129,9 @@ main{padding-top:14px;padding-bottom:40px}
 .area-main{fill:var(--accent);fill-opacity:.13;stroke:none}
 .cross{stroke:var(--fg-3);stroke-width:1;stroke-dasharray:3 3;fill:none}
 .end{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+.ranges{display:flex;gap:4px;margin-top:10px}
+.ranges button{flex:1;font:600 12px var(--font-body);letter-spacing:.04em;color:var(--fg-2);background:transparent;border:1px solid var(--line);border-radius:8px;padding:7px 0;cursor:pointer}
+.ranges button[aria-pressed="true"]{color:var(--accent);border-color:var(--accent);background:rgba(217,182,92,.08)}
 .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
 .stat .v{font-size:15px;font-weight:500;margin-top:2px;overflow-wrap:anywhere}
 @media (min-width:640px){.stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
@@ -262,10 +265,15 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
         </div>
       </div>
       <div class="chart" id="chart"></div>
+      <div class="ranges" id="ranges" role="group" aria-label="Chart time range">
+        <button type="button" data-r="24h">24H</button><button type="button" data-r="7d">7D</button><button type="button" data-r="30d">30D</button><button type="button" data-r="1y">1Y</button>
+      </div>
       <div class="stats">
         <div class="stat"><div class="label">Floating P&amp;L</div><div class="v num" id="sFloat">-</div></div>
         <div class="stat"><div class="label">Closed today</div><div class="v num" id="sToday">-</div></div>
         <div class="stat"><div class="label">Open trades</div><div class="v num" id="sOpen">-</div></div>
+        <div class="stat"><div class="label">Closed this week</div><div class="v num" id="sWeek">-</div></div>
+        <div class="stat"><div class="label">Closed this month</div><div class="v num" id="sMonth">-</div></div>
         <div class="stat"><div class="label">Lowest margin</div><div class="v num" id="sLow">-</div></div>
       </div>
     </section>
@@ -299,8 +307,16 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 (function(){
 'use strict';
 
-const N = 96;            // points in the 24h curve (15 minutes apart)
-const STEP_MIN = 15;
+const RANGES = {
+  '24h':{n:96, step:15,   label:'24h'},
+  '7d': {n:168,step:60,   label:'7 days'},
+  '30d':{n:120,step:360,  label:'30 days'},
+  '1y': {n:183,step:2880, label:'1 year'}
+};
+let range = '24h';
+try{ const r0 = localStorage.getItem('range'); if(RANGES[r0]) range = r0; }catch(e){}
+let N = RANGES[range].n;         // points in the curve
+let STEP_MIN = RANGES[range].step;
 const MINUS = '−';
 const $ = id => document.getElementById(id);
 
@@ -349,13 +365,15 @@ function mapAcct(x,idx,open){
   const a = {
     idx:idx,id:x.id,g:x.group,name:x.name,server:x.server||'',login:x.login||'',
     connected:!!x.connected,demo:!!x.demo,lostAt:x.lostAt||0,open:!!open,
-    bal:x.balance,equity:x.equity,float:x.equity-x.balance,
+    bal:x.balance,credit:x.credit||0,equity:x.equity,float:x.equity-x.balance-(x.credit||0),
     ml:(x.marginLevel===undefined||x.marginLevel===null)?null:x.marginLevel,
     pos:(x.positions||[]).map(p=>({ticket:p.ticket,sym:p.symbol,dir:p.dir,lots:p.lots,open:p.open,cur:p.cur,pnl:p.pnl})),
     closed:(x.closed||[]).map(t=>({t:t.t,sym:t.symbol,dir:t.dir,lots:t.lots,pnl:t.pnl}))
   };
   a.closedSum = a.closed.reduce((s,t)=>s+t.pnl,0);
-  a.dd = a.bal>0 ? Math.max(0,(a.bal-a.equity)/a.bal) : 0;
+  a.wk = (typeof x.pnlWeek==='number') ? x.pnlWeek : null;
+  a.mo = (typeof x.pnlMonth==='number') ? x.pnlMonth : null;
+  a.dd = (a.bal+a.credit)>0 ? Math.max(0,(a.bal+a.credit-a.equity)/(a.bal+a.credit)) : 0;
   a.series = seriesFor(x.id,x.equity);
   return a;
 }
@@ -380,11 +398,12 @@ function flagsHTML(f){return f.map(x => '<span class="flag '+x.k+'">'+x.text+'</
 
 /* ---------- aggregation: accounts of one bot are added together ---------- */
 function aggregate(list){
-  const o = {n:list.length,eq:0,fl:0,cl:0,op:0,conn:0,low:null,lowName:'',att:0,worst:0,from:0,
+  const o = {n:list.length,eq:0,fl:0,cl:0,wk:0,mo:0,haveWk:false,op:0,conn:0,low:null,lowName:'',att:0,worst:0,from:0,
              series:new Array(N).fill(null),c:{off:0,down:0,warn:0}};
   let f = 0;
   for(const a of list){
     o.eq+=a.equity; o.fl+=a.float; o.cl+=a.closedSum; o.op+=a.pos.length;
+    if(a.wk!==null){o.wk+=a.wk;o.mo+=a.mo;o.haveWk=true;}
     if(a.connected) o.conn++;
     if(a.connected && a.ml!==null && (o.low===null||a.ml<o.low)){o.low=a.ml;o.lowName=a.name;}
     flags(a).forEach(x => o.c[x.k]++);
@@ -540,6 +559,8 @@ function detailsHTML(a){
       + '<div class="p2 num r">#'+esc(p.ticket)+'</div>'
       + '</div>';
   }).join('');
+  if(a.wk!==null) h += '<div class="dhead gap"><span class="label">Closed this week</span><span class="num '+cls(a.wk)+'">'+money(a.wk,{sign:true})+'</span></div>'
+    + '<div class="dhead"><span class="label">Closed this month</span><span class="num '+cls(a.mo)+'">'+money(a.mo,{sign:true})+'</span></div>';
   h += '<div class="dhead gap"><span class="label">Closed today ('+a.closed.length+')</span><span class="num '+cls(a.closedSum)+'">'+money(a.closedSum,{sign:true})+'</span></div>';
   if(!a.closed.length) h += '<p class="none">No closed trades yet today.</p>';
   else {
@@ -677,6 +698,9 @@ function paintSummary(){
   $('total').textContent = money(o.eq);
   const sf = $('sFloat'); sf.textContent = money(o.fl,{sign:true}); sf.className = 'v num '+cls(o.fl);
   const st = $('sToday'); st.textContent = money(o.cl,{sign:true}); st.className = 'v num '+cls(o.cl);
+  const sw = $('sWeek'), sm = $('sMonth');
+  sw.textContent = o.haveWk ? money(o.wk,{sign:true}) : '-'; sw.className = 'v num '+(o.haveWk?cls(o.wk):'');
+  sm.textContent = o.haveWk ? money(o.mo,{sign:true}) : '-'; sm.className = 'v num '+(o.haveWk?cls(o.mo):'');
   $('sOpen').textContent = String(o.op);
   const sl = $('sLow');
   sl.textContent = o.low===null ? '—' : nf0.format(o.low)+'% · '+o.lowName;
@@ -709,6 +733,13 @@ function paintStatus(){
 
 /* ---------- equity curve ---------- */
 const geom = {plotW:300};
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function axisLabel(d){
+  if(range==='24h') return hhmm(d);
+  if(range==='1y') return MON[d.getMonth()]+' '+d.getDate();
+  return d.getDate()+' '+MON[d.getMonth()];
+}
+function fullLabel(d){ return range==='24h' ? hhmm(d) : d.getDate()+' '+MON[d.getMonth()]+' '+hhmm(d); }
 function timeAt(i){return new Date(Date.now()-(N-1-i)*STEP_MIN*60000);}
 function renderChart(){
   const tot = chartSeries;
@@ -736,15 +767,15 @@ function renderChart(){
           + '<text class="ax" x="'+(plotW+8).toFixed(1)+'" y="'+(y+3.5).toFixed(1)+'">'+CUR.trim()+(v/1000).toFixed(dec)+'k</text>';
   });
   let xl='';
-  [0,24,48,72,N-1].forEach(function(i){
+  [0,1,2,3,4].map(k=>Math.round(k*(N-1)/4)).forEach(function(i){
     const anchor = i===0 ? 'start' : i===N-1 ? 'end' : 'middle';
-    const lab = i===N-1 ? 'now' : hhmm(timeAt(i));
+    const lab = i===N-1 ? 'now' : axisLabel(timeAt(i));
     xl += '<text class="ax" x="'+X(i).toFixed(1)+'" y="'+(H-5)+'" text-anchor="'+anchor+'">'+lab+'</text>';
   });
   const li = scrub===null ? N-1 : Math.max(f,scrub);
   const cx = X(li), cy = Y(tot[li]);
   const cross = scrub===null ? '' : '<line class="cross" x1="'+cx.toFixed(1)+'" x2="'+cx.toFixed(1)+'" y1="'+padT+'" y2="'+base+'"/>';
-  chartEl.innerHTML = '<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Equity over the last 24 hours">'
+  chartEl.innerHTML = '<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Equity over time">'
     + grid + '<path class="area-main" d="'+area+'"/><path class="ln-main" d="'+line+'"/>' + cross
     + '<circle class="end" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="4.5"/>' + xl + '</svg>';
   const cv=$('chgVal'), cs=$('chgSub');
@@ -752,11 +783,11 @@ function renderChart(){
     const ch = tot[N-1]-tot[f];
     cv.textContent = money(ch,{sign:true});
     cv.className = 'chg-val num '+cls(ch);
-    cs.textContent = (tot[f]?pct(ch/tot[f]*100)+' · ':'')+(f===0?'24h':'since '+hhmm(timeAt(f)));
+    cs.textContent = (tot[f]?pct(ch/tot[f]*100)+' · ':'')+(f===0?RANGES[range].label:'since '+axisLabel(timeAt(f)));
   } else {
     cv.textContent = money(tot[li]);
     cv.className = 'chg-val num';
-    cs.textContent = li===N-1 ? 'now' : hhmm(timeAt(li));
+    cs.textContent = li===N-1 ? 'now' : fullLabel(timeAt(li));
   }
 }
 function scrubAt(e){
@@ -816,11 +847,27 @@ function applyState(s){
   }
   paintAll();
 }
+function paintRanges(){
+  document.querySelectorAll('#ranges button').forEach(b => b.setAttribute('aria-pressed', b.dataset.r===range ? 'true' : 'false'));
+}
+function setRange(r){
+  if(!RANGES[r] || r===range) return;
+  range = r; N = RANGES[r].n; STEP_MIN = RANGES[r].step; scrub = null; seriesCache = {};
+  try{ localStorage.setItem('range',r); }catch(e){}
+  paintRanges();
+  accts.forEach(a => { a.series = seriesFor(a.id,a.equity); });
+  loadSeries();
+}
+document.getElementById('ranges').addEventListener('click',function(e){
+  const b = e.target.closest('button'); if(b) setRange(b.dataset.r);
+});
+paintRanges();
 function loadSeries(){
-  fetch('/api/series',{credentials:'same-origin',cache:'no-store'})
+  const asked = range;
+  fetch('/api/series?range='+asked,{credentials:'same-origin',cache:'no-store'})
     .then(r => r.status===401 ? (location.href='/login', null) : r.json())
     .then(j => {
-      if(!j) return;
+      if(!j || asked!==range) return;
       seriesCache = j.series || {};
       accts.forEach(a => { a.series = seriesFor(a.id,a.equity); });
       paintAll();
