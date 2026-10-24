@@ -280,6 +280,7 @@ async function main() {
 
   console.log('Provider: ' + cfg.provider + (cfg.demo ? ' (demo)' : ''));
   await provider.start();
+  if (provider.forgotten && provider.forgotten.length) history.forget(provider.forgotten);
   if (cfg.provider === 'mock') provider.seedHistory(history);
   app.startTimers();
   setTimeout(() => { try { app.sample(); } catch (e) { /* ignore */ } }, 5000).unref();
