@@ -203,26 +203,36 @@ test('history: hourly tier serves old ranges and survives save/load', () => {
   assert.ok(month[119] === 1481);
 });
 
-test('drawdown: peak to trough, week resets', () => {
-  const h = new History(null);
-  h.track('a', 100, 1); h.track('a', 120, 1); h.track('a', 90, 1); h.track('a', 130, 1); h.track('a', 117, 1);
-  let d = h.drawdown('a', 1);
-  assert.strictEqual(d.all.amt, 30); assert.strictEqual(d.all.pct, 25);   // 120 -> 90
-  assert.strictEqual(d.week.amt, 30);
-  h.track('a', 100, 2);            // new week: starts fresh at 100
-  d = h.drawdown('a', 2);
-  assert.strictEqual(d.week.amt, 0); assert.strictEqual(d.all.amt, 30);
-});
-
 test('startOfWeek is a Monday 00:00 London', () => {
   const { startOfWeek } = require('../lib/tz');
   const w = startOfWeek('Europe/London', new Date('2026-10-24T02:00:00Z'));  // Saturday
   assert.strictEqual(w.toISOString(), '2026-10-18T23:00:00.000Z');          // Mon 19 Oct 00:00 BST
 });
 
-test('drawdown: a later smaller dip never lowers the recorded worst', () => {
+test('drawdown: lowest floating P&L, weekly reset, ignores settle period and deposits', () => {
   const h = new History(null);
-  h.track('a', 15000, 1); h.track('a', 14999.95, 1); h.track('a', 14999.97, 1); h.track('a', 14999.98, 1);
-  const d = h.drawdown('a', 1);
-  assert.strictEqual(d.all.amt, 0.05); assert.strictEqual(d.week.amt, 0.05);
+  const t0 = 1_000_000;
+  h.track('a', -5, 1000, 1, t0);              // inside settle period: ignored
+  assert.strictEqual(h.drawdown('a', 1), null);
+  for (let k = 1; k <= 6; k++) h.track('a', 0, 1000, 1, t0 + k * 10000);   // steady reports, no loss
+  h.track('a', -2, 1000, 1, t0 + 61000);
+  h.track('a', -30, 1000, 1, t0 + 62000);
+  h.track('a', -10, 1000, 1, t0 + 63000);     // recovering never lowers the worst
+  h.track('a', 50, 1000, 1, t0 + 64000);
+  let d = h.drawdown('a', 1);
+  assert.strictEqual(d.all.amt, 30); assert.strictEqual(d.all.pct, 3); assert.strictEqual(d.week.amt, 30);
+  // a deposit changes balance and equity together, so floating (and drawdown) is untouched
+  h.track('a', 0, 6000, 1, t0 + 65000);
+  assert.strictEqual(h.drawdown('a', 1).all.amt, 30);
+  // new week
+  h.track('a', -4, 6000, 2, t0 + 66000);
+  d = h.drawdown('a', 2);
+  assert.strictEqual(d.week.amt, 4); assert.strictEqual(d.all.amt, 30);
+  // reset
+  h.reset('a');
+  d = h.drawdown('a', 2);
+  assert.strictEqual(d.week.amt, 0); assert.strictEqual(d.all.amt, 0);
+  // a gap in reports starts a new settle period
+  h.track('a', -99, 1000, 2, t0 + 200000);
+  assert.strictEqual(h.drawdown('a', 2).all.amt, 0);
 });
