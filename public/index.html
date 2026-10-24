@@ -371,6 +371,7 @@ function mapAcct(x,idx,open){
     closed:(x.closed||[]).map(t=>({t:t.t,sym:t.symbol,dir:t.dir,lots:t.lots,pnl:t.pnl}))
   };
   a.closedSum = a.closed.reduce((s,t)=>s+t.pnl,0);
+  a.mdd = x.dd || null;
   a.wk = (typeof x.pnlWeek==='number') ? x.pnlWeek : null;
   a.mo = (typeof x.pnlMonth==='number') ? x.pnlMonth : null;
   a.dd = (a.bal+a.credit)>0 ? Math.max(0,(a.bal+a.credit-a.equity)/(a.bal+a.credit)) : 0;
@@ -549,6 +550,8 @@ sortEl.addEventListener('change',function(){sort=sortEl.value;applyView();});
 function detailsHTML(a){
   let h = '<div class="dhead"><span class="label">Margin level</span><span class="num '+(a.connected && a.ml!==null && a.ml<300?'warn':'mut')+'">'+(a.ml===null?'—':nf0.format(a.ml)+'%')+'</span></div>'
     + '<div class="dhead"><span class="label">Margin used</span><span class="num mut">'+(a.margin?money(a.margin):'—')+'</span></div>'
+    + (a.mdd ? '<div class="dhead gap"><span class="label">Biggest drawdown · this week</span><span class="num '+(a.mdd.week.amt>0?'down':'mut')+'">'+(a.mdd.week.amt>0?MINUS+money(a.mdd.week.amt)+' · '+a.mdd.week.pct.toFixed(2)+'%':'None')+'</span></div>'
+      + '<div class="dhead"><span class="label">Biggest drawdown · all time</span><span class="num '+(a.mdd.all.amt>0?'down':'mut')+'">'+(a.mdd.all.amt>0?MINUS+money(a.mdd.all.amt)+' · '+a.mdd.all.pct.toFixed(2)+'%':'None')+'</span></div>' : '')
     + '<div class="dhead gap"><span class="label">Open positions</span><span class="num mut">'+a.pos.length+'</span></div>';
   if(!a.connected) h += '<p class="none warn">Prices frozen. Last update '+ago(a.lostAt)+' ago.</p>';
   if(!a.pos.length) h += '<p class="none">No open positions.</p>';
