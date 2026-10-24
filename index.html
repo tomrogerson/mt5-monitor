@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0b1012">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="MT5 Monitor">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<title>MT5 Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky bar with tabs (Overview plus one per bot group). One summary panel with a 24h equity curve follows the active tab. Overview lists one card per bot (its accounts summed) plus an attention list; each bot tab lists that bot's accounts. Dark only, by design. */
+:root{
+  --font-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-num:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --bg:#0b1012;
+  --surface:#121a1d;
+  --line:#223036;
+  --fg:#e4ecec;
+  --fg-2:#9db0b4;
+  --fg-3:#7f9298;
+  --accent:#d9b65c;
+  --accent-bg:rgba(217,182,92,.13);
+  --up:#3fd08f;
+  --up-bg:rgba(63,208,143,.13);
+  --up-flash:rgba(63,208,143,.3);
+  --down:#ff7266;
+  --down-bg:rgba(255,114,102,.13);
+  --down-flash:rgba(255,114,102,.3);
+  --warn:#f2b43a;
+  --warn-bg:rgba(242,180,58,.14);
+  --buy:#78aaff;
+  --buy-bg:rgba(120,170,255,.13);
+  --sell:#bda0ff;
+  --sell-bg:rgba(189,160,255,.13);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{background:var(--bg)}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family:var(--font-body);
+  font-size:14px;
+  line-height:1.4;
+  -webkit-text-size-adjust:100%;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.gutter{
+  max-width:1080px;
+  margin-inline:auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3)}
+.mut{color:var(--fg-2)}
+.up{color:var(--up)}
+.down{color:var(--down)}
+.flat{color:var(--fg-2)}
+.warn{color:var(--warn)}
+.r{text-align:right}
+
+.bar{
+  position:sticky;
+  top:0;
+  z-index:9;
+  background:var(--bg);
+  border-bottom:1px solid var(--line);
+  padding-top:env(safe-area-inset-top,0px);
+}
+.bar .top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:10px;padding-bottom:4px}
+h1{margin:0;font-size:17px;font-weight:700;letter-spacing:.01em;line-height:1.2}
+.sub2{font-size:12px;color:var(--fg-2)}
+.sub2 a{color:var(--fg-3);margin-left:8px}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--up-bg);color:var(--up);white-space:nowrap}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+.pill .dot{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex:1 0 auto;
+  min-width:0;
+  appearance:none;
+  background:none;
+  border:0;
+  border-bottom:2px solid transparent;
+  color:var(--fg-2);
+  font:600 14px var(--font-body);
+  padding:9px 10px 10px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  white-space:nowrap;
+}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.tdot{width:6px;height:6px;border-radius:50%;background:var(--warn);flex:none}
+
+main{padding-top:14px;padding-bottom:40px}
+.note{margin:0 0 10px;padding:8px 12px;border-radius:8px;background:var(--accent-bg);color:var(--fg-2);font-size:12.5px}
+.note.bad{background:var(--warn-bg);color:var(--warn)}
+.note p{margin:0}
+.note p + p{margin-top:4px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.sum-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.total{font-size:clamp(28px,8.5vw,40px);font-weight:600;letter-spacing:-.02em;line-height:1.1;margin-top:4px}
+.chg{text-align:right;min-width:0}
+.chg-val{font-size:18px;font-weight:600}
+.chg-sub{font-size:12px;color:var(--fg-2)}
+.chart{position:relative;height:156px;margin-top:14px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.chart svg{display:block}
+.gl{stroke:var(--line);stroke-width:1;opacity:.75}
+.ax{fill:var(--fg-3);font:11px var(--font-num)}
+.ln-main{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.area-main{fill:var(--accent);fill-opacity:.13;stroke:none}
+.cross{stroke:var(--fg-3);stroke-width:1;stroke-dasharray:3 3;fill:none}
+.end{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+.ranges{display:flex;gap:4px;margin-top:10px}
+.ranges button{flex:1;font:600 12px var(--font-body);letter-spacing:.04em;color:var(--fg-2);background:transparent;border:1px solid var(--line);border-radius:8px;padding:7px 0;cursor:pointer}
+.ranges button[aria-pressed="true"]{color:var(--accent);border-color:var(--accent);background:rgba(217,182,92,.08)}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.stat .v{font-size:15px;font-weight:500;margin-top:2px;overflow-wrap:anywhere}
+@media (min-width:640px){.stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+.shead{display:flex;justify-content:space-between;align-items:baseline;margin:20px 0 8px}
+.shead .num{font-size:12px;color:var(--fg-2)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.waiting{text-align:center;color:var(--fg-2);padding:48px 8px}
+.waiting strong{display:block;color:var(--fg);font-size:16px;margin-bottom:6px}
+
+.row2{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:18px 0 12px}
+.row2 > .num{font-size:12px;white-space:nowrap}
+.sortl{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);min-width:0}
+select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 8px;min-width:0;max-width:100%;text-transform:none;letter-spacing:0}
+
+.bots,.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:10px;align-items:start}
+.card,.bot{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
+.card{scroll-margin-top:130px}
+.bot{padding:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.bot.att{border-color:var(--warn)}
+.card.s-warn{border-color:var(--warn)}
+.card.s-down{border-color:var(--down)}
+.card.s-off{border-style:dashed;border-color:var(--warn)}
+.card.s-off .mrow,.card.s-off .spark,.card.s-off .mini{opacity:.6}
+.card-top{display:block;padding:14px;cursor:pointer;border-radius:12px;-webkit-tap-highlight-color:transparent}
+.nrow{display:flex;align-items:center;gap:8px;min-width:0}
+.aname{font-size:16px;font-weight:700;white-space:nowrap}
+.bn{font-size:12px;color:var(--fg-2);white-space:nowrap}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--up);flex:none}
+.sdot.s3{background:var(--fg-3)}
+.sdot.s2{background:var(--down)}
+.sdot.s1{background:var(--warn)}
+.card.s-warn .sdot{background:var(--warn)}
+.card.s-down .sdot{background:var(--down)}
+.card.s-off .sdot{background:var(--fg-3)}
+.tag{font:500 11px var(--font-num);color:var(--fg-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+.demo{margin-left:auto;font:700 10.5px var(--font-body);letter-spacing:.08em;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);border-radius:5px;padding:1px 6px;flex:none}
+.demo[hidden]{display:none}
+.demo:not([hidden]) + .chev{margin-left:10px}
+.chev{margin-left:auto;width:8px;height:8px;border-right:2px solid var(--fg-3);border-bottom:2px solid var(--fg-3);transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s ease;flex:none}
+.chev.go{transform:rotate(-45deg)}
+.card.open .chev{transform:rotate(225deg) translate(-2px,-2px)}
+.sub{font-size:12px;color:var(--fg-3);margin-top:2px;overflow-wrap:anywhere}
+.flags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.flag{font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px}
+.flag.warn{background:var(--warn-bg);color:var(--warn)}
+.flag.down{background:var(--down-bg);color:var(--down)}
+.flag.off{background:var(--warn-bg);color:var(--warn)}
+.mrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:12px;align-items:end}
+.eq{font-size:22px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
+.pl{display:inline-block;padding:3px 8px;border-radius:7px;font-size:15px;font-weight:500;margin-top:2px}
+.pl.up{background:var(--up-bg)}
+.pl.down{background:var(--down-bg)}
+.pl.flat{background:transparent}
+.tu{animation:tu .7s ease-out}
+.td{animation:td .7s ease-out}
+@keyframes tu{from{background-color:var(--up-flash)}}
+@keyframes td{from{background-color:var(--down-flash)}}
+.spark{position:relative;height:32px;margin:10px 4px 0 0;color:var(--up)}
+.spark.neg{color:var(--down)}
+.spark svg{display:block;width:100%;height:32px;overflow:visible}
+.spark .ln{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.spark .area{fill:currentColor;fill-opacity:.12;stroke:none}
+.edot{position:absolute;right:0;top:0;width:7px;height:7px;border-radius:50%;background:currentColor;transform:translate(50%,-50%);box-shadow:0 0 0 2px var(--surface)}
+.mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.mini .label{font-size:10px;white-space:nowrap}
+.mini .num{font-size:12.5px;margin-top:1px;overflow-wrap:anywhere}
+
+.alist{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.arow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;padding:12px 14px;border-top:1px solid var(--line);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.arow:first-child{border-top:0}
+.arow.ok{display:flex;align-items:center;gap:10px;cursor:default;color:var(--fg-2)}
+.arow .a1{display:flex;align-items:center;gap:8px;min-width:0}
+.arow .a1 strong{font-size:15px}
+.arow .afl{font-size:14px;font-weight:500}
+.arow .af{grid-column:1 / -1;margin-top:0}
+
+.details{border-top:1px solid var(--line);padding:12px 14px 14px}
+.dhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+.dhead.gap{margin-top:14px}
+.none{margin:6px 0 0;font-size:13px;color:var(--fg-2)}
+.pos{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:8px 0;border-top:1px solid var(--line)}
+.dhead + .pos{border-top:0}
+.pos .p1{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+.pos .p2{font-size:12px;color:var(--fg-2)}
+.side{font:700 10.5px var(--font-body);letter-spacing:.06em;padding:2px 6px;border-radius:5px}
+.side.buy{background:var(--buy-bg);color:var(--buy)}
+.side.sell{background:var(--sell-bg);color:var(--sell)}
+.tr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+.dhead + .tr{border-top:0}
+.tr .t{color:var(--fg-3);font-size:12px}
+.more{font-size:12px;color:var(--fg-3);margin:6px 0 0}
+
+@media (prefers-reduced-motion:reduce){
+  .pill .dot,.tu,.td{animation:none}
+  .chev{transition:none}
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="gutter">
+    <div class="top">
+      <div>
+        <h1>MT5 Monitor</h1>
+        <div class="sub2">Updated <span class="num" id="updated">--:--:--</span><a href="/logout">Log out</a></div>
+      </div>
+      <span class="pill" id="pill"><span class="dot"></span><span id="pillText">Connecting</span></span>
+    </div>
+    <div class="tabs" id="tabs" role="tablist" aria-label="Sections"></div>
+  </div>
+</header>
+
+<main class="gutter">
+  <div class="note" id="demo" hidden><p>Demo data with simulated prices. Not connected to a broker.</p></div>
+  <div class="note bad" id="notice" hidden></div>
+
+  <div class="waiting" id="waiting"><strong>Connecting to your accounts</strong><span id="waitText">This can take a minute or two after the server starts.</span></div>
+
+  <div id="content" hidden>
+    <section class="panel" aria-label="Summary">
+      <div class="sum-head">
+        <div>
+          <div class="label" id="totalLabel">Total equity</div>
+          <div class="total num" id="total">-</div>
+        </div>
+        <div class="chg">
+          <div class="chg-val num" id="chgVal"></div>
+          <div class="chg-sub num" id="chgSub"></div>
+        </div>
+      </div>
+      <div class="chart" id="chart"></div>
+      <div class="ranges" id="ranges" role="group" aria-label="Chart time range">
+        <button type="button" data-r="24h">24H</button><button type="button" data-r="7d">7D</button><button type="button" data-r="30d">30D</button><button type="button" data-r="1y">1Y</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="label">Floating P&amp;L</div><div class="v num" id="sFloat">-</div></div>
+        <div class="stat"><div class="label">Closed today</div><div class="v num" id="sToday">-</div></div>
+        <div class="stat"><div class="label">Open trades</div><div class="v num" id="sOpen">-</div></div>
+        <div class="stat"><div class="label">Closed this week</div><div class="v num" id="sWeek">-</div></div>
+        <div class="stat"><div class="label">Closed this month</div><div class="v num" id="sMonth">-</div></div>
+        <div class="stat"><div class="label">Lowest margin</div><div class="v num" id="sLow">-</div></div>
+      </div>
+    </section>
+
+    <div id="viewOverview">
+      <div class="shead"><span class="label">Bots, accounts combined</span></div>
+      <div class="bots" id="bots"></div>
+      <div class="shead"><span class="label">Needs attention</span><span class="num" id="attCount">0</span></div>
+      <div class="alist" id="alist"></div>
+    </div>
+
+    <div id="viewBot" hidden>
+      <div class="row2">
+        <span class="num mut" id="count"></span>
+        <label class="sortl">Sort
+          <select id="sort">
+            <option value="attention">Attention first</option>
+            <option value="pl-asc">Lowest P&amp;L first</option>
+            <option value="pl-desc">Highest P&amp;L first</option>
+            <option value="equity">Highest equity</option>
+            <option value="name">Account order</option>
+          </select>
+        </label>
+      </div>
+      <div class="cards" id="cards"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function(){
+'use strict';
+
+const RANGES = {
+  '24h':{n:96, step:15,   label:'24h'},
+  '7d': {n:168,step:60,   label:'7 days'},
+  '30d':{n:120,step:360,  label:'30 days'},
+  '1y': {n:183,step:2880, label:'1 year'}
+};
+let range = '24h';
+try{ const r0 = localStorage.getItem('range'); if(RANGES[r0]) range = r0; }catch(e){}
+let N = RANGES[range].n;         // points in the curve
+let STEP_MIN = RANGES[range].step;
+const MINUS = '−';
+const $ = id => document.getElementById(id);
+
+let CUR = '$';
+let groups = [], GROUP = {}, accts = [];
+let structKey = '', tab = 'overview', sort = 'attention', scrub = null;
+let chartSeries = null, chartFrom = 0;
+let seriesCache = {}, linkUp = false, lastState = null, hashTab = null;
+let nodes = [], botNodes = {}, alistKey = '__init__';
+const AGG = {};
+
+/* ---------- formatting ---------- */
+const nf2 = new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const nf0 = new Intl.NumberFormat('en-US',{maximumFractionDigits:0});
+function money(v,o){
+  o = o||{};
+  const dec = o.dec===undefined ? 2 : o.dec;
+  const r = dec===0 ? Math.round(Math.abs(v)) : Math.round(Math.abs(v)*100)/100;
+  const body = CUR+(dec===0?nf0:nf2).format(r);
+  if(r===0) return body;
+  return (v<0 ? MINUS : (o.sign ? '+' : ''))+body;
+}
+function pct(v){
+  const r = Number(Math.abs(v).toFixed(2));
+  return (v<0&&r>0 ? MINUS : (v>0&&r>0 ? '+' : ''))+r.toFixed(2)+'%';
+}
+function cls(v){const r=Math.round(v*100);return r>0?'up':r<0?'down':'flat';}
+const pad2 = n => String(n).padStart(2,'0');
+const hhmm = d => pad2(d.getHours())+':'+pad2(d.getMinutes());
+function ago(t){return Math.max(1,Math.floor((Date.now()-t)/60000))+'m';}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+const priceDigits = p => p>=1000 ? 2 : p>=10 ? 3 : 5;
+
+/* ---------- data mapping ---------- */
+function firstIdx(s){for(let i=0;i<s.length;i++) if(s[i]!==null) return i; return s.length-1;}
+function seriesFor(id,equity){
+  const src = seriesCache[id];
+  const s = new Array(N).fill(null);
+  if(src) for(let i=0;i<N-1;i++) s[i] = src[i]===undefined ? null : src[i];
+  s[N-1] = equity;
+  let prev = null;
+  for(let i=0;i<N;i++){ if(s[i]===null) s[i]=prev; else prev=s[i]; }   // carry forward; leading nulls stay
+  return s;
+}
+function mapAcct(x,idx,open){
+  const a = {
+    idx:idx,id:x.id,g:x.group,name:x.name,server:x.server||'',login:x.login||'',
+    connected:!!x.connected,demo:!!x.demo,lostAt:x.lostAt||0,open:!!open,
+    bal:x.balance,equity:x.equity,float:x.equity-x.balance,
+    ml:(x.marginLevel===undefined||x.marginLevel===null)?null:x.marginLevel,
+    pos:(x.positions||[]).map(p=>({ticket:p.ticket,sym:p.symbol,dir:p.dir,lots:p.lots,open:p.open,cur:p.cur,pnl:p.pnl})),
+    closed:(x.closed||[]).map(t=>({t:t.t,sym:t.symbol,dir:t.dir,lots:t.lots,pnl:t.pnl}))
+  };
+  a.closedSum = a.closed.reduce((s,t)=>s+t.pnl,0);
+  a.wk = (typeof x.pnlWeek==='number') ? x.pnlWeek : null;
+  a.mo = (typeof x.pnlMonth==='number') ? x.pnlMonth : null;
+  a.dd = a.bal>0 ? Math.max(0,(a.bal-a.equity)/a.bal) : 0;
+  a.series = seriesFor(x.id,x.equity);
+  return a;
+}
+
+/* ---------- status logic ---------- */
+function sev(a){
+  if(!a.connected) return 3;
+  if(a.dd>0.05) return 2;
+  if(a.ml!==null && a.ml<300) return 1;
+  return 0;
+}
+function flags(a){
+  const f=[];
+  if(!a.connected) f.push({k:'off',text:'Disconnected '+ago(a.lostAt)+' ago'});
+  else {
+    if(a.dd>0.05) f.push({k:'down',text:'Drawdown '+(a.dd*100).toFixed(1)+'%'});
+    if(a.ml!==null && a.ml<300) f.push({k:'warn',text:'Margin level '+nf0.format(a.ml)+'%'});
+  }
+  return f;
+}
+function flagsHTML(f){return f.map(x => '<span class="flag '+x.k+'">'+x.text+'</span>').join('');}
+
+/* ---------- aggregation: accounts of one bot are added together ---------- */
+function aggregate(list){
+  const o = {n:list.length,eq:0,fl:0,cl:0,wk:0,mo:0,haveWk:false,op:0,conn:0,low:null,lowName:'',att:0,worst:0,from:0,
+             series:new Array(N).fill(null),c:{off:0,down:0,warn:0}};
+  let f = 0;
+  for(const a of list){
+    o.eq+=a.equity; o.fl+=a.float; o.cl+=a.closedSum; o.op+=a.pos.length;
+    if(a.wk!==null){o.wk+=a.wk;o.mo+=a.mo;o.haveWk=true;}
+    if(a.connected) o.conn++;
+    if(a.connected && a.ml!==null && (o.low===null||a.ml<o.low)){o.low=a.ml;o.lowName=a.name;}
+    flags(a).forEach(x => o.c[x.k]++);
+    const s = sev(a);
+    if(s>0) o.att++;
+    if(s>o.worst) o.worst=s;
+    f = Math.max(f,firstIdx(a.series));
+  }
+  o.from = f;
+  if(list.length){
+    for(let i=f;i<N;i++){let s=0;for(const a of list)s+=a.series[i];o.series[i]=s;}
+  }
+  return o;
+}
+function computeAgg(){
+  AGG.all = aggregate(accts);
+  groups.forEach(g => { AGG[g.key] = aggregate(accts.filter(a => a.g===g.key)); });
+}
+
+/* ---------- build DOM ---------- */
+const tabsEl = $('tabs'), botsEl = $('bots'), cardsEl = $('cards'), sortEl = $('sort'), countEl = $('count'), chartEl = $('chart');
+const SPARK = '<div class="spark"><svg viewBox="0 0 300 32" preserveAspectRatio="none" aria-hidden="true"><path class="area" d=""/><path class="ln" d=""/></svg><span class="edot"></span></div>';
+
+function botHTML(g){
+  return '<div class="bot" role="button" tabindex="0" data-g="'+esc(g.key)+'">'
+  + '<div class="nrow"><strong class="aname">'+esc(g.label)+'</strong>'+(g.tag?'<span class="tag">'+esc(g.tag)+'</span>':'')+'<span class="bn"></span><span class="chev go" aria-hidden="true"></span></div>'
+  + '<div class="flags" hidden></div>'
+  + '<div class="mrow"><div><div class="label">Equity</div><div class="eq num"></div></div>'
+  +   '<div class="r"><div class="label">Floating</div><div class="fl num pl flat"></div></div></div>'
+  + SPARK
+  + '<div class="mini">'
+  +   '<div><div class="label">Today</div><div class="num tdy"></div></div>'
+  +   '<div><div class="label">Open</div><div class="num opn"></div></div>'
+  +   '<div><div class="label">Min margin</div><div class="num ml"></div></div>'
+  +   '<div><div class="label">Online</div><div class="num onl"></div></div>'
+  + '</div></div>';
+}
+function cardHTML(a,i){
+  const g = GROUP[a.g];
+  return '<article class="card" data-i="'+i+'">'
+  + '<div class="card-top" role="button" tabindex="0" aria-expanded="false" aria-controls="det-'+i+'">'
+  +   '<div class="nrow"><span class="sdot"></span><strong class="aname">'+esc(a.name)+'</strong>'+(g&&g.tag?'<span class="tag">'+esc(g.tag)+'</span>':'')+'<span class="demo" hidden>DEMO</span><span class="chev" aria-hidden="true"></span></div>'
+  +   '<div class="sub">'+esc(a.server)+(a.login?' · #'+esc(a.login):'')+'</div>'
+  +   '<div class="flags" hidden></div>'
+  +   '<div class="mrow"><div><div class="label">Equity</div><div class="eq num"></div></div>'
+  +     '<div class="r"><div class="label">Floating</div><div class="fl num pl flat"></div></div></div>'
+  +   SPARK
+  +   '<div class="mini">'
+  +     '<div><div class="label">Balance</div><div class="num bal"></div></div>'
+  +     '<div><div class="label">Margin</div><div class="num ml"></div></div>'
+  +     '<div><div class="label">Open</div><div class="num opn"></div></div>'
+  +     '<div><div class="label">Today</div><div class="num tdy"></div></div>'
+  +   '</div>'
+  + '</div>'
+  + '<div class="details" id="det-'+i+'" hidden></div>'
+  + '</article>';
+}
+function buildDOM(){
+  tabsEl.innerHTML = [{key:'overview',label:'Overview'}].concat(groups.map(g=>({key:g.key,label:g.label}))).map(t =>
+    '<button class="tab" type="button" role="tab" data-t="'+esc(t.key)+'" aria-selected="false">'+esc(t.label)+'<span class="tdot" hidden></span></button>'
+  ).join('');
+  botsEl.innerHTML = groups.map(botHTML).join('');
+  botNodes = {};
+  groups.forEach(function(g,i){
+    const root = botsEl.children[i];
+    const q = s => root.querySelector(s);
+    botNodes[g.key] = {root:root,bn:q('.bn'),flags:q('.flags'),eq:q('.eq'),fl:q('.fl'),spark:q('.spark'),ln:q('.spark .ln'),
+      area:q('.spark .area'),edot:q('.edot'),tdy:q('.tdy'),opn:q('.opn'),ml:q('.ml'),onl:q('.onl')};
+  });
+  cardsEl.innerHTML = accts.map(cardHTML).join('');
+  nodes = accts.map(function(a,i){
+    const root = cardsEl.children[i];
+    const q = s => root.querySelector(s);
+    if(a.open){ root.classList.add('open'); }
+    return {root:root,top:q('.card-top'),demo:q('.demo'),flags:q('.flags'),eq:q('.eq'),fl:q('.fl'),bal:q('.bal'),ml:q('.ml'),
+      opn:q('.opn'),tdy:q('.tdy'),spark:q('.spark'),ln:q('.spark .ln'),area:q('.spark .area'),edot:q('.edot'),det:q('.details')};
+  });
+  accts.forEach(function(a,i){
+    if(a.open){ nodes[i].top.setAttribute('aria-expanded','true'); nodes[i].det.hidden=false; nodes[i].det.innerHTML=detailsHTML(a); }
+  });
+  alistKey = '__init__';
+}
+
+/* ---------- tabs, sorting, expand ---------- */
+function cmp(x,y){
+  switch(sort){
+    case 'attention': return (sev(y)-sev(x)) || (x.idx-y.idx);
+    case 'pl-asc': return x.float-y.float;
+    case 'pl-desc': return y.float-x.float;
+    case 'equity': return y.equity-x.equity;
+    default: return x.idx-y.idx;
+  }
+}
+function applyView(){
+  accts.slice().sort(cmp).forEach(a => cardsEl.appendChild(nodes[a.idx].root));
+  let shown = 0;
+  accts.forEach(function(a){
+    const ok = a.g===tab;
+    nodes[a.idx].root.hidden = !ok;
+    if(ok) shown++;
+  });
+  countEl.textContent = shown+' accounts';
+}
+function setTab(key,opt){
+  tab = key;
+  scrub = null;
+  $('viewOverview').hidden = key!=='overview';
+  $('viewBot').hidden = key==='overview';
+  tabsEl.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected',String(t.dataset.t===key)));
+  if(key!=='overview') applyView();
+  paintAll();
+  if(!(opt && opt.keepScroll)) window.scrollTo(0,0);
+}
+function toggle(i){
+  const a = accts[i], n = nodes[i];
+  a.open = !a.open;
+  n.root.classList.toggle('open',a.open);
+  n.top.setAttribute('aria-expanded',String(a.open));
+  n.det.hidden = !a.open;
+  if(a.open) n.det.innerHTML = detailsHTML(a);
+}
+function goToAccount(i){
+  const a = accts[i];
+  setTab(a.g,{keepScroll:true});
+  if(!a.open) toggle(i);
+  const el = nodes[i].root;
+  requestAnimationFrame(function(){el.scrollIntoView({block:'start',behavior:'smooth'});});
+}
+function onKey(handler,sel){
+  return function(e){
+    if((e.key==='Enter'||e.key===' ') && e.target.matches(sel)){e.preventDefault();handler(e.target);}
+  };
+}
+tabsEl.addEventListener('click',function(e){const b=e.target.closest('.tab'); if(b) setTab(b.dataset.t);});
+botsEl.addEventListener('click',function(e){const b=e.target.closest('.bot'); if(b) setTab(b.dataset.g);});
+botsEl.addEventListener('keydown',onKey(function(el){setTab(el.dataset.g);},'.bot'));
+$('alist').addEventListener('click',function(e){const r=e.target.closest('.arow[data-i]'); if(r) goToAccount(+r.dataset.i);});
+$('alist').addEventListener('keydown',onKey(function(el){goToAccount(+el.dataset.i);},'.arow[data-i]'));
+cardsEl.addEventListener('click',function(e){const top=e.target.closest('.card-top'); if(top) toggle(+top.closest('.card').dataset.i);});
+cardsEl.addEventListener('keydown',onKey(function(el){toggle(+el.closest('.card').dataset.i);},'.card-top'));
+sortEl.addEventListener('change',function(){sort=sortEl.value;applyView();});
+
+function detailsHTML(a){
+  let h = '<div class="dhead"><span class="label">Open positions</span><span class="num mut">'+a.pos.length+'</span></div>';
+  if(!a.connected) h += '<p class="none warn">Prices frozen. Last update '+ago(a.lostAt)+' ago.</p>';
+  if(!a.pos.length) h += '<p class="none">No open positions.</p>';
+  else h += a.pos.map(function(p){
+    const dg = priceDigits(p.open||p.cur);
+    return '<div class="pos">'
+      + '<div class="p1"><span class="side '+(p.dir>0?'buy':'sell')+'">'+(p.dir>0?'BUY':'SELL')+'</span><strong>'+esc(p.sym)+'</strong><span class="num mut">'+p.lots.toFixed(2)+' lots</span></div>'
+      + '<div class="num '+cls(p.pnl)+'">'+money(p.pnl,{sign:true})+'</div>'
+      + '<div class="p2 num">'+p.open.toFixed(dg)+' → '+p.cur.toFixed(dg)+'</div>'
+      + '<div class="p2 num r">#'+esc(p.ticket)+'</div>'
+      + '</div>';
+  }).join('');
+  if(a.wk!==null) h += '<div class="dhead gap"><span class="label">Closed this week</span><span class="num '+cls(a.wk)+'">'+money(a.wk,{sign:true})+'</span></div>'
+    + '<div class="dhead"><span class="label">Closed this month</span><span class="num '+cls(a.mo)+'">'+money(a.mo,{sign:true})+'</span></div>';
+  h += '<div class="dhead gap"><span class="label">Closed today ('+a.closed.length+')</span><span class="num '+cls(a.closedSum)+'">'+money(a.closedSum,{sign:true})+'</span></div>';
+  if(!a.closed.length) h += '<p class="none">No closed trades yet today.</p>';
+  else {
+    h += a.closed.slice(0,5).map(function(t){
+      return '<div class="tr"><span class="t num">'+hhmm(new Date(t.t))+'</span>'
+        + '<span><span class="side '+(t.dir>0?'buy':'sell')+'">'+(t.dir>0?'BUY':'SELL')+'</span> <span class="num mut">'+esc(t.sym)+' '+t.lots.toFixed(2)+'</span></span>'
+        + '<span class="num '+cls(t.pnl)+'">'+money(t.pnl,{sign:true})+'</span></div>';
+    }).join('');
+    if(a.closed.length>5) h += '<p class="more num">+ '+(a.closed.length-5)+' earlier</p>';
+  }
+  return h;
+}
+
+/* ---------- painting ---------- */
+function sparkPath(s){
+  const f = firstIdx(s);
+  let mn=Infinity,mx=-Infinity;
+  for(let i=f;i<s.length;i++){const v=s[i];if(v<mn)mn=v;if(v>mx)mx=v;}
+  const rng = (mx-mn)||1;
+  let d='', firstX=0;
+  for(let i=f;i<s.length;i++){
+    const x = i/(s.length-1)*300;
+    const y = 3+(1-(s[i]-mn)/rng)*26;
+    if(i===f) firstX = x;
+    d += (i===f?'M':'L')+x.toFixed(1)+' '+y.toFixed(1);
+  }
+  const lastY = 3+(1-(s[s.length-1]-mn)/rng)*26;
+  return {line:d,area:d+'L300 32L'+firstX.toFixed(1)+' 32Z',lastY:lastY};
+}
+function paintSpark(n,series){
+  const sp = sparkPath(series);
+  n.ln.setAttribute('d',sp.line);
+  n.area.setAttribute('d',sp.area);
+  n.edot.style.top = sp.lastY+'px';
+  n.spark.classList.toggle('neg',series[N-1]<series[firstIdx(series)]);
+}
+function flash(el,dir){
+  el.classList.remove('tu','td');
+  void el.offsetWidth;
+  el.classList.add(dir>0?'tu':'td');
+}
+function setPL(el,v){
+  const txt = money(v,{sign:true});
+  if(el.textContent!==txt){
+    const prev = el._v;
+    el.textContent = txt;
+    if(prev!==undefined) flash(el,v>prev?1:-1);
+  }
+  el._v = v;
+  el.classList.remove('up','down','flat');
+  el.classList.add(cls(v));
+}
+function paintCard(a){
+  const n = nodes[a.idx];
+  n.demo.hidden = !a.demo;
+  n.eq.textContent = money(a.equity);
+  setPL(n.fl,a.float);
+  n.bal.textContent = money(a.bal,{dec:0});
+  n.ml.textContent = a.ml===null ? '—' : nf0.format(a.ml)+'%';
+  n.ml.classList.toggle('warn',a.connected && a.ml!==null && a.ml<300);
+  n.opn.textContent = String(a.pos.length);
+  n.tdy.textContent = money(a.closedSum,{sign:true,dec:0});
+  n.tdy.className = 'num tdy '+cls(a.closedSum);
+  const f = flags(a);
+  n.flags.innerHTML = flagsHTML(f);
+  n.flags.hidden = f.length===0;
+  const s = sev(a);
+  n.root.classList.toggle('s-off',s===3);
+  n.root.classList.toggle('s-down',s===2);
+  n.root.classList.toggle('s-warn',s===1);
+  paintSpark(n,a.series);
+  if(a.open) n.det.innerHTML = detailsHTML(a);
+}
+function paintBots(){
+  groups.forEach(function(g){
+    const o = AGG[g.key], n = botNodes[g.key];
+    n.bn.textContent = o.n+' accounts';
+    n.eq.textContent = money(o.eq);
+    setPL(n.fl,o.fl);
+    n.tdy.textContent = money(o.cl,{sign:true,dec:0});
+    n.tdy.className = 'num tdy '+cls(o.cl);
+    n.opn.textContent = String(o.op);
+    n.ml.textContent = o.low===null ? '—' : nf0.format(o.low)+'%';
+    n.ml.classList.toggle('warn',o.low!==null && o.low<300);
+    n.onl.textContent = o.conn+'/'+o.n;
+    n.onl.classList.toggle('warn',o.conn<o.n);
+    const f = [];
+    if(o.c.off) f.push({k:'off',text:o.c.off+' disconnected'});
+    if(o.c.down) f.push({k:'down',text:o.c.down+' in drawdown'});
+    if(o.c.warn) f.push({k:'warn',text:o.c.warn+' low margin'});
+    n.flags.innerHTML = flagsHTML(f);
+    n.flags.hidden = f.length===0;
+    n.root.classList.toggle('att',o.att>0);
+    paintSpark(n,o.series);
+  });
+}
+function rowHTML(a){
+  const g = GROUP[a.g];
+  return '<div class="arow" role="button" tabindex="0" data-i="'+a.idx+'">'
+    + '<div class="a1"><span class="sdot"></span><strong>'+esc(a.name)+'</strong><span class="mut">· '+esc(g?g.label:'')+'</span></div>'
+    + '<div class="afl num"></div><div class="af flags"></div></div>';
+}
+function paintAlerts(){
+  const list = accts.filter(a => sev(a)>0).sort((x,y) => (sev(y)-sev(x)) || (x.idx-y.idx));
+  $('attCount').textContent = String(list.length);
+  const key = list.map(a => a.idx).join(',');
+  const el = $('alist');
+  if(key!==alistKey){
+    alistKey = key;
+    el.innerHTML = list.length
+      ? list.map(rowHTML).join('')
+      : '<div class="arow ok"><span class="sdot"></span><span>All accounts connected and within limits.</span></div>';
+  }
+  el.querySelectorAll('.arow[data-i]').forEach(function(row){
+    const a = accts[+row.dataset.i];
+    const f = row.querySelector('.afl');
+    f.textContent = money(a.float,{sign:true});
+    f.className = 'afl num '+cls(a.float);
+    row.querySelector('.af').innerHTML = flagsHTML(flags(a));
+    row.querySelector('.sdot').className = 'sdot s'+sev(a);
+  });
+}
+function paintTabs(){
+  tabsEl.querySelectorAll('.tab').forEach(function(t){
+    const o = t.dataset.t==='overview' ? AGG.all : AGG[t.dataset.t];
+    t.querySelector('.tdot').hidden = !(o && o.att>0);
+  });
+}
+function paintSummary(){
+  const o = AGG[tab==='overview' ? 'all' : tab] || AGG.all;
+  chartSeries = o.series;
+  chartFrom = o.from;
+  const label = tab==='overview' ? 'Total equity' : (GROUP[tab]?GROUP[tab].label:'')+' equity';
+  $('totalLabel').textContent = label+' · '+o.n+' accounts';
+  $('total').textContent = money(o.eq);
+  const sf = $('sFloat'); sf.textContent = money(o.fl,{sign:true}); sf.className = 'v num '+cls(o.fl);
+  const st = $('sToday'); st.textContent = money(o.cl,{sign:true}); st.className = 'v num '+cls(o.cl);
+  const sw = $('sWeek'), sm = $('sMonth');
+  sw.textContent = o.haveWk ? money(o.wk,{sign:true}) : '-'; sw.className = 'v num '+(o.haveWk?cls(o.wk):'');
+  sm.textContent = o.haveWk ? money(o.mo,{sign:true}) : '-'; sm.className = 'v num '+(o.haveWk?cls(o.mo):'');
+  $('sOpen').textContent = String(o.op);
+  const sl = $('sLow');
+  sl.textContent = o.low===null ? '—' : nf0.format(o.low)+'% · '+o.lowName;
+  sl.className = 'v num'+(o.low!==null&&o.low<300?' warn':'');
+}
+function paintStatus(){
+  const s = lastState;
+  const pill = $('pill'), txt = $('pillText');
+  if(!linkUp){
+    pill.classList.add('warn'); txt.textContent = s ? 'Reconnecting' : 'Connecting';
+  } else if(s){
+    const all = AGG.all;
+    const total = Math.max(s.expected||0, all ? all.n : 0);
+    const conn = all ? all.conn : 0;
+    pill.classList.toggle('warn',conn<total);
+    txt.textContent = 'Live · '+conn+' of '+total;
+  }
+  if(s) $('updated').textContent = new Date(s.now).toLocaleTimeString('en-GB');
+  $('demo').hidden = !(s && s.demo);
+  const msgs = [];
+  if(s){
+    (s.notices||[]).forEach(m => msgs.push(esc(m)));
+    if(s.pending>0 && s.accounts.length>0) msgs.push('Still connecting '+s.pending+' account'+(s.pending===1?'':'s')+'.');
+    (s.errors||[]).forEach(e => msgs.push(esc(e.name)+': '+esc(e.message)));
+  }
+  const nEl = $('notice');
+  nEl.innerHTML = msgs.map(m => '<p>'+m+'</p>').join('');
+  nEl.hidden = msgs.length===0;
+}
+
+/* ---------- equity curve ---------- */
+const geom = {plotW:300};
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function axisLabel(d){
+  if(range==='24h') return hhmm(d);
+  if(range==='1y') return MON[d.getMonth()]+' '+d.getDate();
+  return d.getDate()+' '+MON[d.getMonth()];
+}
+function fullLabel(d){ return range==='24h' ? hhmm(d) : d.getDate()+' '+MON[d.getMonth()]+' '+hhmm(d); }
+function timeAt(i){return new Date(Date.now()-(N-1-i)*STEP_MIN*60000);}
+function renderChart(){
+  const tot = chartSeries;
+  if(!tot){chartEl.innerHTML='';return;}
+  const W = chartEl.clientWidth || 340, H = 156, padR = 54, padT = 10, padB = 22;
+  const plotW = W-padR, plotH = H-padT-padB;
+  geom.plotW = plotW;
+  const f = chartFrom;
+  let mn=Infinity,mx=-Infinity;
+  for(let i=f;i<N;i++){const v=tot[i];if(v<mn)mn=v;if(v>mx)mx=v;}
+  const rng = (mx-mn)||Math.max(1,Math.abs(mx)*0.001);
+  const padv = rng*0.14;
+  mn-=padv; mx+=padv;
+  const X = i => i/(N-1)*plotW;
+  const Y = v => padT+(1-(v-mn)/(mx-mn))*plotH;
+  let line='';
+  for(let i=f;i<N;i++) line += (i===f?'M':'L')+X(i).toFixed(1)+' '+Y(tot[i]).toFixed(1);
+  const base = padT+plotH;
+  const area = line+'L'+plotW.toFixed(1)+' '+base+'L'+X(f).toFixed(1)+' '+base+'Z';
+  const dec = rng<2000 ? 2 : 1;
+  let grid='';
+  [0.15,0.5,0.85].forEach(function(fr){
+    const v = mn+(mx-mn)*fr, y = Y(v);
+    grid += '<line class="gl" x1="0" x2="'+plotW.toFixed(1)+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'"/>'
+          + '<text class="ax" x="'+(plotW+8).toFixed(1)+'" y="'+(y+3.5).toFixed(1)+'">'+CUR.trim()+(v/1000).toFixed(dec)+'k</text>';
+  });
+  let xl='';
+  [0,1,2,3,4].map(k=>Math.round(k*(N-1)/4)).forEach(function(i){
+    const anchor = i===0 ? 'start' : i===N-1 ? 'end' : 'middle';
+    const lab = i===N-1 ? 'now' : axisLabel(timeAt(i));
+    xl += '<text class="ax" x="'+X(i).toFixed(1)+'" y="'+(H-5)+'" text-anchor="'+anchor+'">'+lab+'</text>';
+  });
+  const li = scrub===null ? N-1 : Math.max(f,scrub);
+  const cx = X(li), cy = Y(tot[li]);
+  const cross = scrub===null ? '' : '<line class="cross" x1="'+cx.toFixed(1)+'" x2="'+cx.toFixed(1)+'" y1="'+padT+'" y2="'+base+'"/>';
+  chartEl.innerHTML = '<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Equity over time">'
+    + grid + '<path class="area-main" d="'+area+'"/><path class="ln-main" d="'+line+'"/>' + cross
+    + '<circle class="end" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="4.5"/>' + xl + '</svg>';
+  const cv=$('chgVal'), cs=$('chgSub');
+  if(scrub===null){
+    const ch = tot[N-1]-tot[f];
+    cv.textContent = money(ch,{sign:true});
+    cv.className = 'chg-val num '+cls(ch);
+    cs.textContent = (tot[f]?pct(ch/tot[f]*100)+' · ':'')+(f===0?RANGES[range].label:'since '+axisLabel(timeAt(f)));
+  } else {
+    cv.textContent = money(tot[li]);
+    cv.className = 'chg-val num';
+    cs.textContent = li===N-1 ? 'now' : fullLabel(timeAt(li));
+  }
+}
+function scrubAt(e){
+  if(!chartSeries) return;
+  const r = chartEl.getBoundingClientRect();
+  const x = e.clientX-r.left;
+  scrub = Math.max(0,Math.min(N-1,Math.round(x/geom.plotW*(N-1))));
+  renderChart();
+}
+chartEl.addEventListener('pointermove',scrubAt);
+chartEl.addEventListener('pointerdown',scrubAt);
+['pointerleave','pointercancel','pointerup'].forEach(function(ev){
+  chartEl.addEventListener(ev,function(){scrub=null;renderChart();});
+});
+if(typeof ResizeObserver!=='undefined') new ResizeObserver(renderChart).observe(chartEl);
+
+function paintAll(){
+  computeAgg();
+  paintStatus();
+  const has = accts.length>0;
+  $('waiting').hidden = has;
+  $('content').hidden = !has;
+  if(!has){
+    const s = lastState;
+    $('waitText').textContent = !s ? 'This can take a minute or two after the server starts.'
+      : (s.expected>0 ? 'Waiting for '+s.expected+' account'+(s.expected===1?'':'s')+' to finish connecting. This can take a minute or two.'
+                     : 'No accounts found. Add them in MetaApi, or list them in accounts.json.');
+    return;
+  }
+  accts.forEach(paintCard);
+  paintBots();
+  paintAlerts();
+  paintTabs();
+  paintSummary();
+  renderChart();
+}
+
+/* ---------- data from the server ---------- */
+function applyState(s){
+  lastState = s;
+  CUR = s.currencySymbol || '$';
+  groups = s.groups || [];
+  GROUP = {};
+  groups.forEach(g => { GROUP[g.key] = g; });
+  const prevOpen = new Map(accts.map(a => [a.id,a.open]));
+  accts = s.accounts.map((x,i) => mapAcct(x,i,prevOpen.get(x.id)));
+  const key = groups.map(g => g.key+':'+g.label+':'+g.tag).join('|')+'#'+accts.map(a => a.id+'@'+a.g).join(',');
+  if(key!==structKey){
+    structKey = key;
+    buildDOM();
+    if(hashTab && GROUP[hashTab]){ tab = hashTab; hashTab = null; }
+    if(tab!=='overview' && !GROUP[tab]) tab = 'overview';
+    $('viewOverview').hidden = tab!=='overview';
+    $('viewBot').hidden = tab==='overview';
+    tabsEl.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected',String(t.dataset.t===tab)));
+    if(tab!=='overview') applyView();
+  }
+  paintAll();
+}
+function paintRanges(){
+  document.querySelectorAll('#ranges button').forEach(b => b.setAttribute('aria-pressed', b.dataset.r===range ? 'true' : 'false'));
+}
+function setRange(r){
+  if(!RANGES[r] || r===range) return;
+  range = r; N = RANGES[r].n; STEP_MIN = RANGES[r].step; scrub = null; seriesCache = {};
+  try{ localStorage.setItem('range',r); }catch(e){}
+  paintRanges();
+  accts.forEach(a => { a.series = seriesFor(a.id,a.equity); });
+  loadSeries();
+}
+document.getElementById('ranges').addEventListener('click',function(e){
+  const b = e.target.closest('button'); if(b) setRange(b.dataset.r);
+});
+paintRanges();
+function loadSeries(){
+  const asked = range;
+  fetch('/api/series?range='+asked,{credentials:'same-origin',cache:'no-store'})
+    .then(r => r.status===401 ? (location.href='/login', null) : r.json())
+    .then(j => {
+      if(!j || asked!==range) return;
+      seriesCache = j.series || {};
+      accts.forEach(a => { a.series = seriesFor(a.id,a.equity); });
+      paintAll();
+    }).catch(function(){});
+}
+let es = null;
+function connect(){
+  if(es){ try{es.close();}catch(e){} }
+  es = new EventSource('/api/stream');
+  es.onopen = function(){ linkUp = true; };
+  es.onmessage = function(e){
+    const first = !lastState;
+    linkUp = true;
+    try{ applyState(JSON.parse(e.data)); }catch(err){ console.error(err); return; }
+    if(first) loadSeries();
+  };
+  es.onerror = function(){
+    linkUp = false;
+    paintStatus();
+    fetch('/api/state',{credentials:'same-origin',cache:'no-store'})
+      .then(r => { if(r.status===401) location.href='/login'; })
+      .catch(function(){});
+    if(es.readyState===2) setTimeout(connect,3000);
+  };
+}
+
+const h = (location.hash||'').replace('#','').toLowerCase();
+if(h && h!=='overview') hashTab = h;
+connect();
+setInterval(loadSeries,60000);
+setInterval(function(){ if(lastState) paintStatus(); },5000);
+})();
+</script>
+</body>
+</html>

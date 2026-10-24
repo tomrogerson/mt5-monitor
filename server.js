@@ -63,12 +63,20 @@ function createApp(cfg, provider, history) {
     };
   }
 
-  function buildSeries() {
+  // range -> number of points and spacing
+  const RANGES = {
+    '24h': { n: 96, step: 15 * 60 * 1000 },
+    '7d': { n: 168, step: 3600 * 1000 },
+    '30d': { n: 120, step: 6 * 3600 * 1000 },
+    '1y': { n: 183, step: 2 * 24 * 3600 * 1000 }
+  };
+  function buildSeries(range) {
+    const r = RANGES[range] || RANGES['24h'];
     const snap = provider.snapshot();
     const now = Date.now();
     const series = {};
-    for (const a of snap.accounts) series[a.id] = history.series(a.id, a.equity, now, N, STEP_MS);
-    return { now, step: STEP_MS, n: N, series };
+    for (const a of snap.accounts) series[a.id] = history.series(a.id, a.equity, now, r.n, r.step);
+    return { now, range: RANGES[range] ? range : '24h', step: r.step, n: r.n, series };
   }
 
   function sample() {
@@ -171,7 +179,7 @@ function createApp(cfg, provider, history) {
 
     if (p === '/' || p === '/index.html') return serveFile(res, 'index.html');
     if (p === '/api/state') return json(res, 200, buildLive());
-    if (p === '/api/series') return json(res, 200, buildSeries());
+    if (p === '/api/series') return json(res, 200, buildSeries(url.searchParams.get('range')));
     if (p === '/api/stream') {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
