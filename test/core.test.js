@@ -219,3 +219,10 @@ test('startOfWeek is a Monday 00:00 London', () => {
   const w = startOfWeek('Europe/London', new Date('2026-10-24T02:00:00Z'));  // Saturday
   assert.strictEqual(w.toISOString(), '2026-10-18T23:00:00.000Z');          // Mon 19 Oct 00:00 BST
 });
+
+test('drawdown: a later smaller dip never lowers the recorded worst', () => {
+  const h = new History(null);
+  h.track('a', 15000, 1); h.track('a', 14999.95, 1); h.track('a', 14999.97, 1); h.track('a', 14999.98, 1);
+  const d = h.drawdown('a', 1);
+  assert.strictEqual(d.all.amt, 0.05); assert.strictEqual(d.week.amt, 0.05);
+});
