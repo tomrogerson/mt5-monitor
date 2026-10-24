@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0b1012">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -44,7 +44,7 @@
   color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:border-box}
-html{background:var(--bg)}
+html{background:var(--bg);touch-action:pan-x pan-y}
 body{
   margin:0;
   background:var(--bg);
@@ -118,7 +118,7 @@ main{padding-top:14px;padding-bottom:40px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
 .sum-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
 .total{font-size:clamp(28px,8.5vw,40px);font-weight:600;letter-spacing:-.02em;line-height:1.1;margin-top:4px}
-.chg{text-align:right;min-width:0}
+.chg{text-align:right;min-width:0;flex:1 1 auto}
 .chg-val{font-size:18px;font-weight:600}
 .chg-sub{font-size:12px;color:var(--fg-2)}
 .chart{position:relative;height:156px;margin-top:14px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
@@ -198,6 +198,8 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .edot{position:absolute;right:0;top:0;width:7px;height:7px;border-radius:50%;background:currentColor;transform:translate(50%,-50%);box-shadow:0 0 0 2px var(--surface)}
 .mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
 .mini .label{font-size:10px;white-space:nowrap}
+.pp{display:block;font-size:10.5px;opacity:.7;margin-top:1px}
+.pp2{display:block;font-size:12px;opacity:.7;margin-top:1px}
 .mini .num{font-size:12.5px;margin-top:1px;overflow-wrap:anywhere}
 
 .alist{background:var(--surface);border:1px solid var(--line);border-radius:12px}
@@ -335,6 +337,8 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 <script>
 (function(){
 'use strict';
+// no pinch or double-tap zoom (iOS ignores the viewport setting, so block its gesture events too)
+['gesturestart','gesturechange','gestureend'].forEach(function(ev){document.addEventListener(ev,function(e){e.preventDefault();});});
 
 const RANGES = {
   '24h':{n:96, step:15,   label:'24h'},
@@ -401,7 +405,8 @@ function mapAcct(x,idx,open){
     pos:(x.positions||[]).map(p=>({ticket:p.ticket,sym:p.symbol,dir:p.dir,lots:p.lots,open:p.open,cur:p.cur,pnl:p.pnl})),
     closed:(x.closed||[]).map(t=>({t:t.t,sym:t.symbol,dir:t.dir,lots:t.lots,pnl:t.pnl}))
   };
-  a.closedSum = a.closed.reduce((s,t)=>s+t.pnl,0);
+  a.closedSum = (typeof x.closedSum==='number') ? x.closedSum : a.closed.reduce((s,t)=>s+t.pnl,0);
+  a.closedN = (typeof x.closedCount==='number') ? x.closedCount : a.closed.length;
   a.mdd = x.dd || null;
   a.wk = (typeof x.pnlWeek==='number') ? x.pnlWeek : null;
   a.mo = (typeof x.pnlMonth==='number') ? x.pnlMonth : null;
@@ -430,12 +435,12 @@ function flagsHTML(f){return f.map(x => '<span class="flag '+x.k+'">'+x.text+'</
 
 /* ---------- aggregation: accounts of one bot are added together ---------- */
 function aggregate(list){
-  const o = {n:list.length,eq:0,fl:0,cl:0,wk:0,mo:0,haveWk:false,op:0,conn:0,low:null,lowName:'',att:0,worst:0,from:0,
+  const o = {n:list.length,eq:0,fl:0,cl:0,wk:0,mo:0,haveWk:false,bal:0,balWk:0,op:0,conn:0,low:null,lowName:'',att:0,worst:0,from:0,
              series:new Array(N).fill(null),c:{off:0,down:0,warn:0}};
   let f = 0;
   for(const a of list){
-    o.eq+=a.equity; o.fl+=a.float; o.cl+=a.closedSum; o.op+=a.pos.length;
-    if(a.wk!==null){o.wk+=a.wk;o.mo+=a.mo;o.haveWk=true;}
+    o.eq+=a.equity; o.fl+=a.float; o.cl+=a.closedSum; o.op+=a.pos.length; o.bal+=a.bal;
+    if(a.wk!==null){o.wk+=a.wk;o.mo+=a.mo;o.haveWk=true;o.balWk+=a.bal;}
     if(a.connected) o.conn++;
     if(a.connected && a.ml!==null && (o.low===null||a.ml<o.low)){o.low=a.ml;o.lowName=a.name;}
     flags(a).forEach(x => o.c[x.k]++);
@@ -467,7 +472,7 @@ function botHTML(g){
   +   '<div class="r"><div class="label">Floating</div><div class="fl num pl flat"></div></div></div>'
   + SPARK
   + '<div class="mini">'
-  +   '<div><div class="label">Today</div><div class="num tdy"></div></div>'
+  +   '<div><div class="label">Today</div><div class="num tdy" data-k="tdy"></div></div>'
   +   '<div><div class="label">Week</div><div class="num wk" data-k="wk"></div></div>'
   +   '<div><div class="label">Month</div><div class="num mo" data-k="mo"></div></div>'
   +   '<div><div class="label">Online</div><div class="num onl"></div></div>'
@@ -485,7 +490,7 @@ function cardHTML(a,i){
   +   SPARK
   +   '<div class="mini">'
   +     '<div><div class="label">Balance</div><div class="num bal"></div></div>'
-  +     '<div><div class="label">Today</div><div class="num tdy"></div></div>'
+  +     '<div><div class="label">Today</div><div class="num tdy" data-k="tdy"></div></div>'
   +     '<div><div class="label">Week</div><div class="num wk" data-k="wk"></div></div>'
   +     '<div><div class="label">Month</div><div class="num mo" data-k="mo"></div></div>'
   +   '</div>'
@@ -595,7 +600,7 @@ function detailsHTML(a){
       + '<div class="p2 num r">#'+esc(p.ticket)+'</div>'
       + '</div>';
   }).join('');
-  h += '<div class="dhead gap"><span class="label">Closed today ('+a.closed.length+')</span><span class="num '+cls(a.closedSum)+'">'+money(a.closedSum,{sign:true})+'</span></div>';
+  h += '<div class="dhead gap"><span class="label">Closed today ('+a.closedN+')</span><span class="num '+cls(a.closedSum)+'">'+money(a.closedSum,{sign:true})+'</span></div>';
   if(!a.closed.length) h += '<p class="none">No closed trades yet today.</p>';
   else {
     h += a.closed.slice(0,5).map(function(t){
@@ -603,7 +608,7 @@ function detailsHTML(a){
         + '<span><span class="side '+(t.dir>0?'buy':'sell')+'">'+(t.dir>0?'BUY':'SELL')+'</span> <span class="num mut">'+esc(t.sym)+' '+t.lots.toFixed(2)+'</span></span>'
         + '<span class="num '+cls(t.pnl)+'">'+money(t.pnl,{sign:true})+'</span></div>';
     }).join('');
-    if(a.closed.length>5) h += '<p class="more num">+ '+(a.closed.length-5)+' earlier</p>';
+    if(a.closedN>5) h += '<p class="more num">+ '+(a.closedN-5)+' earlier</p>';
   }
   return h;
 }
@@ -647,19 +652,22 @@ function setPL(el,v){
   el.classList.remove('up','down','flat');
   el.classList.add(cls(v));
 }
-function setPer(el,v){
-  el.textContent = v===null ? '—' : money(v,{sign:true,dec:0});
-  el.className = 'num '+el.dataset.k+' '+(v===null?'':cls(v));
+// return on the balance the period started with (current balance minus the period's profit)
+function retPct(v,bal){ if(v===null) return null; const b = bal - v; return b>0 ? v/b*100 : null; }
+function setPer(el,v,bal){
+  if(v===null){ el.textContent='—'; el.className='num '+el.dataset.k; return; }
+  const r = retPct(v,bal);
+  el.innerHTML = money(v,{sign:true,dec:0}) + (r===null?'':'<span class="pp">'+pct(r)+'</span>');
+  el.className = 'num '+el.dataset.k+' '+cls(v);
 }
+function statText(v,bal){ const r = retPct(v,bal); return money(v,{sign:true})+(r===null?'':'<span class="pp2">'+pct(r)+'</span>'); }
 function paintCard(a){
   const n = nodes[a.idx];
   n.demo.hidden = !a.demo;
   n.eq.textContent = money(a.equity);
   setPL(n.fl,a.float);
   n.bal.textContent = money(a.bal,{dec:0});
-  n.tdy.textContent = money(a.closedSum,{sign:true,dec:0});
-  n.tdy.className = 'num tdy '+cls(a.closedSum);
-  setPer(n.wk,a.wk); setPer(n.mo,a.mo);
+  setPer(n.tdy,a.closedSum,a.bal); setPer(n.wk,a.wk,a.bal); setPer(n.mo,a.mo,a.bal);
   const f = flags(a);
   n.flags.innerHTML = flagsHTML(f);
   n.flags.hidden = f.length===0;
@@ -676,9 +684,8 @@ function paintBots(){
     n.bn.textContent = o.n+' accounts';
     n.eq.textContent = money(o.eq);
     setPL(n.fl,o.fl);
-    n.tdy.textContent = money(o.cl,{sign:true,dec:0});
-    n.tdy.className = 'num tdy '+cls(o.cl);
-    setPer(n.wk,o.haveWk?o.wk:null); setPer(n.mo,o.haveWk?o.mo:null);
+    setPer(n.tdy,o.cl,o.bal);
+    setPer(n.wk,o.haveWk?o.wk:null,o.balWk); setPer(n.mo,o.haveWk?o.mo:null,o.balWk);
     n.onl.textContent = o.conn+'/'+o.n;
     n.onl.classList.toggle('warn',o.conn<o.n);
     const f = [];
@@ -733,10 +740,10 @@ function paintSummary(){
   const sf = $('sFloat');
   if(sf._tab!==tab){ sf._tab=tab; sf._v=undefined; sf.textContent=''; }   // no flash when switching tabs
   setPL(sf,o.fl);
-  const st = $('sToday'); st.textContent = money(o.cl,{sign:true}); st.className = 'v num '+cls(o.cl);
+  const st = $('sToday'); st.innerHTML = statText(o.cl,o.bal); st.className = 'v num '+cls(o.cl);
   const sw = $('sWeek'), sm = $('sMonth');
-  sw.textContent = o.haveWk ? money(o.wk,{sign:true}) : '-'; sw.className = 'v num '+(o.haveWk?cls(o.wk):'');
-  sm.textContent = o.haveWk ? money(o.mo,{sign:true}) : '-'; sm.className = 'v num '+(o.haveWk?cls(o.mo):'');
+  sw.innerHTML = o.haveWk ? statText(o.wk,o.balWk) : '-'; sw.className = 'v num '+(o.haveWk?cls(o.wk):'');
+  sm.innerHTML = o.haveWk ? statText(o.mo,o.balWk) : '-'; sm.className = 'v num '+(o.haveWk?cls(o.mo):'');
   $('sOpen').textContent = String(o.op);
   const sl = $('sLow');
   sl.textContent = o.low===null ? '—' : nf0.format(o.low)+'% · '+o.lowName;
@@ -780,27 +787,32 @@ function timeAt(i){return new Date(Date.now()-(N-1-i)*STEP_MIN*60000);}
 function renderChart(){
   const tot = chartSeries;
   if(!tot){chartEl.innerHTML='';return;}
-  const W = chartEl.clientWidth || 340, H = 156, padR = 54, padT = 10, padB = 22;
-  const plotW = W-padR, plotH = H-padT-padB;
-  geom.plotW = plotW;
+  const W = chartEl.clientWidth || 340, H = 156, padT = 10, padB = 22;
   const f = chartFrom;
   let mn=Infinity,mx=-Infinity;
   for(let i=f;i<N;i++){const v=tot[i];if(v<mn)mn=v;if(v>mx)mx=v;}
   const rng = (mx-mn)||Math.max(1,Math.abs(mx)*0.001);
   const padv = rng*0.14;
   mn-=padv; mx+=padv;
+  // axis labels: whole figures when the range is small, otherwise thousands ("k")
+  const span = mx-mn;
+  const axisFmt = v => CUR.trim()+(span<5 ? nf2 : nf0).format(v);
+  const fracs = [0.15,0.5,0.85];
+  const labs = fracs.map(fr => axisFmt(mn+span*fr));
+  const padR = Math.max(54, Math.ceil(Math.max.apply(null,labs.map(t=>t.length))*7.2)+14);
+  const plotW = W-padR, plotH = H-padT-padB;
+  geom.plotW = plotW;
   const X = i => i/(N-1)*plotW;
   const Y = v => padT+(1-(v-mn)/(mx-mn))*plotH;
   let line='';
   for(let i=f;i<N;i++) line += (i===f?'M':'L')+X(i).toFixed(1)+' '+Y(tot[i]).toFixed(1);
   const base = padT+plotH;
   const area = line+'L'+plotW.toFixed(1)+' '+base+'L'+X(f).toFixed(1)+' '+base+'Z';
-  const dec = rng<2000 ? 2 : 1;
   let grid='';
-  [0.15,0.5,0.85].forEach(function(fr){
-    const v = mn+(mx-mn)*fr, y = Y(v);
+  fracs.forEach(function(fr,k){
+    const v = mn+span*fr, y = Y(v);
     grid += '<line class="gl" x1="0" x2="'+plotW.toFixed(1)+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'"/>'
-          + '<text class="ax" x="'+(plotW+8).toFixed(1)+'" y="'+(y+3.5).toFixed(1)+'">'+CUR.trim()+(v/1000).toFixed(dec)+'k</text>';
+          + '<text class="ax" x="'+(plotW+8).toFixed(1)+'" y="'+(y+3.5).toFixed(1)+'">'+labs[k]+'</text>';
   });
   let xl='';
   [0,1,2,3,4].map(k=>Math.round(k*(N-1)/4)).forEach(function(i){
@@ -819,7 +831,7 @@ function renderChart(){
     const ch = tot[N-1]-tot[f];
     cv.textContent = money(ch,{sign:true});
     cv.className = 'chg-val num '+cls(ch);
-    cs.textContent = (tot[f]?pct(ch/tot[f]*100)+' · ':'')+(f===0?RANGES[range].label:'since '+axisLabel(timeAt(f)));
+    cs.textContent = (tot[f]?pct(ch/tot[f]*100):'')+(f===0?' · '+RANGES[range].label:'');
   } else {
     cv.textContent = money(tot[li]);
     cv.className = 'chg-val num';
