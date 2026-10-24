@@ -236,3 +236,22 @@ test('drawdown: lowest floating P&L, weekly reset, ignores settle period and dep
   h.track('a', -99, 1000, 2, t0 + 200000);
   assert.strictEqual(h.drawdown('a', 2).all.amt, 0);
 });
+
+test('FORGET_ACCOUNTS removes a stored account and its history on startup', async () => {
+  const { PushProvider } = require('../lib/providers/push');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'f-'));
+  const base = { dataDir: dir, expectedAccounts: 0, forgetAccounts: [] };
+  const p1 = new PushProvider(base);
+  const mk = (id, login) => ({ id, name: 'n' + login, server: 'S', login, balance: 1, equity: 1, positions: [], closed: [] });
+  p1.ingest(mk('S:111', '111')); p1.ingest(mk('S:222', '222'));
+  p1.dirty = true; p1.save();
+  const p2 = new PushProvider(Object.assign({}, base, { forgetAccounts: ['111'] }));
+  p2.load();
+  assert.deepStrictEqual(p2.snapshot().accounts.map(a => a.id), ['S:222']);
+  assert.deepStrictEqual(p2.forgotten, ['S:111']);
+  p2.save();
+  const p3 = new PushProvider(base); p3.load();
+  assert.strictEqual(p3.snapshot().accounts.length, 1);   // stays gone once the setting is removed
+  const h = new History(null); h.add('S:111', Date.now(), 5); h.forget(['S:111']);
+  assert.strictEqual(h.series('S:111', 1, Date.now(), 3, 60000)[0], null);
+});
