@@ -40,12 +40,24 @@ function createApp(cfg, provider, history) {
     return list;
   }
 
-  function weekStartMs() { return startOfWeek(cfg.timezone, new Date()).getTime(); }
+  let wkCache = { at: 0, v: 0 };
+  function weekStartMs() {
+    const now = Date.now();
+    if (now - wkCache.at > 30000) wkCache = { at: now, v: startOfWeek(cfg.timezone, new Date(now)).getTime() };
+    return wkCache.v;
+  }
 
   function buildLive() {
     const snap = provider.snapshot();
     const wk = weekStartMs();
-    const accounts = snap.accounts.map(a => Object.assign({}, a, { group: groupFor(a.name, cfg.groups, a.group), dd: history.drawdown(a.id, wk) }));
+    const accounts = snap.accounts.map(a => Object.assign({}, a, {
+      group: groupFor(a.name, cfg.groups, a.group),
+      dd: history.drawdown(a.id, wk),
+      // the screen only lists the newest few closed trades, so send those plus the totals
+      closed: (a.closed || []).slice(0, 8),
+      closedCount: (a.closed || []).length,
+      closedSum: (a.closed || []).reduce((t, x) => t + x.pnl, 0)
+    }));
     const currencies = [...new Set(accounts.map(a => a.currency))];
     const notices = [];
     let symbol = '$';
@@ -87,7 +99,7 @@ function createApp(cfg, provider, history) {
     const snap = provider.snapshot();
     const now = Date.now();
     const wk = weekStartMs();
-    for (const a of snap.accounts) if (a.connected) { history.add(a.id, now, a.equity); history.track(a.id, a.equity, wk); }
+    for (const a of snap.accounts) if (a.connected) { history.add(a.id, now, a.equity); if (typeof provider.ingest !== 'function') history.track(a.id, a.equity - a.balance - (a.credit || 0), a.balance, wk, now, true); }
   }
 
   function send(res, status, body, headers) {
@@ -171,7 +183,7 @@ function createApp(cfg, provider, history) {
       const given = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
       if (!auth.checkPassword(given, cfg.ingestToken)) return json(res, 401, { error: 'unauthorised' });
       let body;
-      try { body = JSON.parse(await readBody(req, 1024 * 1024)); const id = provider.ingest(body); if (body.connected !== false) history.track(id, body.equity, weekStartMs()); } catch (e) { return json(res, 400, { error: String(e.message || e) }); }
+      try { body = JSON.parse(await readBody(req, 1024 * 1024)); const id = provider.ingest(body); if (body.connected !== false) history.track(id, body.equity - body.balance - (Number(body.credit) || 0), body.balance, weekStartMs()); } catch (e) { return json(res, 400, { error: String(e.message || e) }); }
       return json(res, 200, { ok: true });
     }
 
@@ -211,6 +223,18 @@ function createApp(cfg, provider, history) {
     });
   });
 
+  // A slow or sleeping client must never make the server queue data without limit:
+  // skip frames while its buffer is backed up, and drop the connection if it stays stuck.
+  function sendTo(c, payload) {
+    if (c.writableNeedDrain || c.writableLength > 256 * 1024) {
+      c._skipped = (c._skipped || 0) + 1;
+      if (c._skipped > 30) { clients.delete(c); try { c.destroy(); } catch (e) { /* ignore */ } }
+      return;
+    }
+    c._skipped = 0;
+    c.write(payload);
+  }
+
   function startTimers() {
     samplerTimer = setInterval(sample, 60 * 1000);
     saveTimer = setInterval(() => history.save(), 5 * 60 * 1000);
@@ -218,10 +242,10 @@ function createApp(cfg, provider, history) {
       if (!clients.size) return;
       let payload;
       try { payload = 'data: ' + JSON.stringify(buildLive()) + '\n\n'; } catch (e) { return; }
-      for (const c of clients) c.write(payload);
+      for (const c of clients) sendTo(c, payload);
     }, cfg.pushMs);
     // keep proxies from closing idle streams
-    const ka = setInterval(() => { for (const c of clients) c.write(': keep-alive\n\n'); }, 20000);
+    const ka = setInterval(() => { for (const c of clients) sendTo(c, ': keep-alive\n\n'); }, 20000);
     server._ka = ka;
     [samplerTimer, saveTimer, pushTimer, ka].forEach(t => t.unref && t.unref());
   }
