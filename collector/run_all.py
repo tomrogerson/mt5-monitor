@@ -27,7 +27,7 @@ def main():
                "--name", t["name"], "--path", t["path"]]
         if t.get("group"):
             cmd += ["--group", t["group"]]
-        procs[t["name"]] = subprocess.Popen(cmd)
+        procs[t["path"]] = subprocess.Popen(cmd)
 
     for t in terminals:
         launch(t)
@@ -38,7 +38,7 @@ def main():
         while True:
             time.sleep(10)
             for t in terminals:
-                if procs[t["name"]].poll() is not None:
+                if procs[t["path"]].poll() is not None:
                     print(f"{datetime.now():%H:%M:%S} restarting {t['name']}")
                     launch(t)
     except KeyboardInterrupt:

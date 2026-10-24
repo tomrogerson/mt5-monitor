@@ -110,6 +110,7 @@ def collect(name, group, tz_name, offset_hours, state):
         "login": str(info.login),
         "currency": info.currency,
         "connected": bool(term.connected) if term else True,
+        "demo": info.trade_mode in (mt5.ACCOUNT_TRADE_MODE_DEMO, mt5.ACCOUNT_TRADE_MODE_CONTEST),
         "balance": info.balance,
         "equity": info.equity,
         "margin": info.margin,

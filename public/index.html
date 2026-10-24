@@ -165,6 +165,9 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .card.s-down .sdot{background:var(--down)}
 .card.s-off .sdot{background:var(--fg-3)}
 .tag{font:500 11px var(--font-num);color:var(--fg-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+.demo{margin-left:auto;font:700 10.5px var(--font-body);letter-spacing:.08em;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);border-radius:5px;padding:1px 6px;flex:none}
+.demo[hidden]{display:none}
+.demo:not([hidden]) + .chev{margin-left:10px}
 .chev{margin-left:auto;width:8px;height:8px;border-right:2px solid var(--fg-3);border-bottom:2px solid var(--fg-3);transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s ease;flex:none}
 .chev.go{transform:rotate(-45deg)}
 .card.open .chev{transform:rotate(225deg) translate(-2px,-2px)}
@@ -345,7 +348,7 @@ function seriesFor(id,equity){
 function mapAcct(x,idx,open){
   const a = {
     idx:idx,id:x.id,g:x.group,name:x.name,server:x.server||'',login:x.login||'',
-    connected:!!x.connected,lostAt:x.lostAt||0,open:!!open,
+    connected:!!x.connected,demo:!!x.demo,lostAt:x.lostAt||0,open:!!open,
     bal:x.balance,equity:x.equity,float:x.equity-x.balance,
     ml:(x.marginLevel===undefined||x.marginLevel===null)?null:x.marginLevel,
     pos:(x.positions||[]).map(p=>({ticket:p.ticket,sym:p.symbol,dir:p.dir,lots:p.lots,open:p.open,cur:p.cur,pnl:p.pnl})),
@@ -423,7 +426,7 @@ function cardHTML(a,i){
   const g = GROUP[a.g];
   return '<article class="card" data-i="'+i+'">'
   + '<div class="card-top" role="button" tabindex="0" aria-expanded="false" aria-controls="det-'+i+'">'
-  +   '<div class="nrow"><span class="sdot"></span><strong class="aname">'+esc(a.name)+'</strong>'+(g&&g.tag?'<span class="tag">'+esc(g.tag)+'</span>':'')+'<span class="chev" aria-hidden="true"></span></div>'
+  +   '<div class="nrow"><span class="sdot"></span><strong class="aname">'+esc(a.name)+'</strong>'+(g&&g.tag?'<span class="tag">'+esc(g.tag)+'</span>':'')+'<span class="demo" hidden>DEMO</span><span class="chev" aria-hidden="true"></span></div>'
   +   '<div class="sub">'+esc(a.server)+(a.login?' · #'+esc(a.login):'')+'</div>'
   +   '<div class="flags" hidden></div>'
   +   '<div class="mrow"><div><div class="label">Equity</div><div class="eq num"></div></div>'
@@ -456,7 +459,7 @@ function buildDOM(){
     const root = cardsEl.children[i];
     const q = s => root.querySelector(s);
     if(a.open){ root.classList.add('open'); }
-    return {root:root,top:q('.card-top'),flags:q('.flags'),eq:q('.eq'),fl:q('.fl'),bal:q('.bal'),ml:q('.ml'),
+    return {root:root,top:q('.card-top'),demo:q('.demo'),flags:q('.flags'),eq:q('.eq'),fl:q('.fl'),bal:q('.bal'),ml:q('.ml'),
       opn:q('.opn'),tdy:q('.tdy'),spark:q('.spark'),ln:q('.spark .ln'),area:q('.spark .area'),edot:q('.edot'),det:q('.details')};
   });
   accts.forEach(function(a,i){
@@ -591,6 +594,7 @@ function setPL(el,v){
 }
 function paintCard(a){
   const n = nodes[a.idx];
+  n.demo.hidden = !a.demo;
   n.eq.textContent = money(a.equity);
   setPL(n.fl,a.float);
   n.bal.textContent = money(a.bal,{dec:0});
