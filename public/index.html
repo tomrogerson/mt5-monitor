@@ -365,7 +365,7 @@ function mapAcct(x,idx,open){
   const a = {
     idx:idx,id:x.id,g:x.group,name:x.name,server:x.server||'',login:x.login||'',
     connected:!!x.connected,demo:!!x.demo,lostAt:x.lostAt||0,open:!!open,
-    bal:x.balance,credit:x.credit||0,equity:x.equity,float:x.equity-x.balance-(x.credit||0),
+    bal:x.balance,margin:x.margin||0,credit:x.credit||0,equity:x.equity,float:x.equity-x.balance-(x.credit||0),
     ml:(x.marginLevel===undefined||x.marginLevel===null)?null:x.marginLevel,
     pos:(x.positions||[]).map(p=>({ticket:p.ticket,sym:p.symbol,dir:p.dir,lots:p.lots,open:p.open,cur:p.cur,pnl:p.pnl})),
     closed:(x.closed||[]).map(t=>({t:t.t,sym:t.symbol,dir:t.dir,lots:t.lots,pnl:t.pnl}))
@@ -436,8 +436,8 @@ function botHTML(g){
   + SPARK
   + '<div class="mini">'
   +   '<div><div class="label">Today</div><div class="num tdy"></div></div>'
-  +   '<div><div class="label">Open</div><div class="num opn"></div></div>'
-  +   '<div><div class="label">Min margin</div><div class="num ml"></div></div>'
+  +   '<div><div class="label">Week</div><div class="num wk" data-k="wk"></div></div>'
+  +   '<div><div class="label">Month</div><div class="num mo" data-k="mo"></div></div>'
   +   '<div><div class="label">Online</div><div class="num onl"></div></div>'
   + '</div></div>';
 }
@@ -453,9 +453,9 @@ function cardHTML(a,i){
   +   SPARK
   +   '<div class="mini">'
   +     '<div><div class="label">Balance</div><div class="num bal"></div></div>'
-  +     '<div><div class="label">Margin</div><div class="num ml"></div></div>'
-  +     '<div><div class="label">Open</div><div class="num opn"></div></div>'
   +     '<div><div class="label">Today</div><div class="num tdy"></div></div>'
+  +     '<div><div class="label">Week</div><div class="num wk" data-k="wk"></div></div>'
+  +     '<div><div class="label">Month</div><div class="num mo" data-k="mo"></div></div>'
   +   '</div>'
   + '</div>'
   + '<div class="details" id="det-'+i+'" hidden></div>'
@@ -471,15 +471,15 @@ function buildDOM(){
     const root = botsEl.children[i];
     const q = s => root.querySelector(s);
     botNodes[g.key] = {root:root,bn:q('.bn'),flags:q('.flags'),eq:q('.eq'),fl:q('.fl'),spark:q('.spark'),ln:q('.spark .ln'),
-      area:q('.spark .area'),edot:q('.edot'),tdy:q('.tdy'),opn:q('.opn'),ml:q('.ml'),onl:q('.onl')};
+      area:q('.spark .area'),edot:q('.edot'),tdy:q('.tdy'),wk:q('.wk'),mo:q('.mo'),onl:q('.onl')};
   });
   cardsEl.innerHTML = accts.map(cardHTML).join('');
   nodes = accts.map(function(a,i){
     const root = cardsEl.children[i];
     const q = s => root.querySelector(s);
     if(a.open){ root.classList.add('open'); }
-    return {root:root,top:q('.card-top'),demo:q('.demo'),flags:q('.flags'),eq:q('.eq'),fl:q('.fl'),bal:q('.bal'),ml:q('.ml'),
-      opn:q('.opn'),tdy:q('.tdy'),spark:q('.spark'),ln:q('.spark .ln'),area:q('.spark .area'),edot:q('.edot'),det:q('.details')};
+    return {root:root,top:q('.card-top'),demo:q('.demo'),flags:q('.flags'),eq:q('.eq'),fl:q('.fl'),bal:q('.bal'),
+      wk:q('.wk'),mo:q('.mo'),tdy:q('.tdy'),spark:q('.spark'),ln:q('.spark .ln'),area:q('.spark .area'),edot:q('.edot'),det:q('.details')};
   });
   accts.forEach(function(a,i){
     if(a.open){ nodes[i].top.setAttribute('aria-expanded','true'); nodes[i].det.hidden=false; nodes[i].det.innerHTML=detailsHTML(a); }
@@ -547,7 +547,9 @@ cardsEl.addEventListener('keydown',onKey(function(el){toggle(+el.closest('.card'
 sortEl.addEventListener('change',function(){sort=sortEl.value;applyView();});
 
 function detailsHTML(a){
-  let h = '<div class="dhead"><span class="label">Open positions</span><span class="num mut">'+a.pos.length+'</span></div>';
+  let h = '<div class="dhead"><span class="label">Margin level</span><span class="num '+(a.connected && a.ml!==null && a.ml<300?'warn':'mut')+'">'+(a.ml===null?'—':nf0.format(a.ml)+'%')+'</span></div>'
+    + '<div class="dhead"><span class="label">Margin used</span><span class="num mut">'+(a.margin?money(a.margin):'—')+'</span></div>'
+    + '<div class="dhead gap"><span class="label">Open positions</span><span class="num mut">'+a.pos.length+'</span></div>';
   if(!a.connected) h += '<p class="none warn">Prices frozen. Last update '+ago(a.lostAt)+' ago.</p>';
   if(!a.pos.length) h += '<p class="none">No open positions.</p>';
   else h += a.pos.map(function(p){
@@ -559,8 +561,6 @@ function detailsHTML(a){
       + '<div class="p2 num r">#'+esc(p.ticket)+'</div>'
       + '</div>';
   }).join('');
-  if(a.wk!==null) h += '<div class="dhead gap"><span class="label">Closed this week</span><span class="num '+cls(a.wk)+'">'+money(a.wk,{sign:true})+'</span></div>'
-    + '<div class="dhead"><span class="label">Closed this month</span><span class="num '+cls(a.mo)+'">'+money(a.mo,{sign:true})+'</span></div>';
   h += '<div class="dhead gap"><span class="label">Closed today ('+a.closed.length+')</span><span class="num '+cls(a.closedSum)+'">'+money(a.closedSum,{sign:true})+'</span></div>';
   if(!a.closed.length) h += '<p class="none">No closed trades yet today.</p>';
   else {
@@ -613,17 +613,19 @@ function setPL(el,v){
   el.classList.remove('up','down','flat');
   el.classList.add(cls(v));
 }
+function setPer(el,v){
+  el.textContent = v===null ? '—' : money(v,{sign:true,dec:0});
+  el.className = 'num '+el.dataset.k+' '+(v===null?'':cls(v));
+}
 function paintCard(a){
   const n = nodes[a.idx];
   n.demo.hidden = !a.demo;
   n.eq.textContent = money(a.equity);
   setPL(n.fl,a.float);
   n.bal.textContent = money(a.bal,{dec:0});
-  n.ml.textContent = a.ml===null ? '—' : nf0.format(a.ml)+'%';
-  n.ml.classList.toggle('warn',a.connected && a.ml!==null && a.ml<300);
-  n.opn.textContent = String(a.pos.length);
   n.tdy.textContent = money(a.closedSum,{sign:true,dec:0});
   n.tdy.className = 'num tdy '+cls(a.closedSum);
+  setPer(n.wk,a.wk); setPer(n.mo,a.mo);
   const f = flags(a);
   n.flags.innerHTML = flagsHTML(f);
   n.flags.hidden = f.length===0;
@@ -642,9 +644,7 @@ function paintBots(){
     setPL(n.fl,o.fl);
     n.tdy.textContent = money(o.cl,{sign:true,dec:0});
     n.tdy.className = 'num tdy '+cls(o.cl);
-    n.opn.textContent = String(o.op);
-    n.ml.textContent = o.low===null ? '—' : nf0.format(o.low)+'%';
-    n.ml.classList.toggle('warn',o.low!==null && o.low<300);
+    setPer(n.wk,o.haveWk?o.wk:null); setPer(n.mo,o.haveWk?o.mo:null);
     n.onl.textContent = o.conn+'/'+o.n;
     n.onl.classList.toggle('warn',o.conn<o.n);
     const f = [];
