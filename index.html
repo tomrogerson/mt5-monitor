@@ -365,7 +365,7 @@ function mapAcct(x,idx,open){
   const a = {
     idx:idx,id:x.id,g:x.group,name:x.name,server:x.server||'',login:x.login||'',
     connected:!!x.connected,demo:!!x.demo,lostAt:x.lostAt||0,open:!!open,
-    bal:x.balance,equity:x.equity,float:x.equity-x.balance,
+    bal:x.balance,credit:x.credit||0,equity:x.equity,float:x.equity-x.balance-(x.credit||0),
     ml:(x.marginLevel===undefined||x.marginLevel===null)?null:x.marginLevel,
     pos:(x.positions||[]).map(p=>({ticket:p.ticket,sym:p.symbol,dir:p.dir,lots:p.lots,open:p.open,cur:p.cur,pnl:p.pnl})),
     closed:(x.closed||[]).map(t=>({t:t.t,sym:t.symbol,dir:t.dir,lots:t.lots,pnl:t.pnl}))
@@ -373,7 +373,7 @@ function mapAcct(x,idx,open){
   a.closedSum = a.closed.reduce((s,t)=>s+t.pnl,0);
   a.wk = (typeof x.pnlWeek==='number') ? x.pnlWeek : null;
   a.mo = (typeof x.pnlMonth==='number') ? x.pnlMonth : null;
-  a.dd = a.bal>0 ? Math.max(0,(a.bal-a.equity)/a.bal) : 0;
+  a.dd = (a.bal+a.credit)>0 ? Math.max(0,(a.bal+a.credit-a.equity)/(a.bal+a.credit)) : 0;
   a.series = seriesFor(x.id,x.equity);
   return a;
 }

@@ -28,6 +28,7 @@ function clean(body) {
     terminalConnected: body.connected !== false,
     demo: body.demo === true || /demo/i.test(str(body.server)),
     balance, equity, margin: num(body.margin) || 0, marginLevel: num(body.marginLevel),
+    credit: num(body.credit) || 0,
     pnlWeek: num(body.pnlWeek), pnlMonth: num(body.pnlMonth),
     positions, closed
   };
@@ -99,7 +100,7 @@ class PushProvider {
         id: a.id, name: a.name, group: a.group, server: a.server, login: a.login,
         currency: a.currency, demo: a.demo, connected,
         lostAt: connected ? 0 : (a.lostAt || a.seen),
-        balance: a.balance, equity: a.equity, margin: a.margin, marginLevel: a.marginLevel,
+        balance: a.balance, credit: a.credit || 0, equity: a.equity, margin: a.margin, marginLevel: a.marginLevel,
         pnlWeek: a.pnlWeek, pnlMonth: a.pnlMonth,
         positions: a.positions, closed: a.closed
       });

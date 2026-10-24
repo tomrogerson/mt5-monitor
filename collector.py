@@ -162,6 +162,7 @@ def collect(name, group, tz_name, offset_hours, state):
         "connected": bool(term.connected) if term else True,
         "demo": info.trade_mode in (mt5.ACCOUNT_TRADE_MODE_DEMO, mt5.ACCOUNT_TRADE_MODE_CONTEST),
         "balance": info.balance,
+        "credit": info.credit,
         "equity": info.equity,
         "margin": info.margin,
         "marginLevel": ml,
