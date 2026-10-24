@@ -456,7 +456,7 @@ function aggregate(list){
   return o;
 }
 function computeAgg(){
-  AGG.all = aggregate(accts);
+  AGG.all = aggregate(accts.filter(a => !a.demo));  /* demo accounts stay on their cards but are left out of the Overview total */
   groups.forEach(g => { AGG[g.key] = aggregate(accts.filter(a => a.g===g.key)); });
 }
 
@@ -755,9 +755,8 @@ function paintStatus(){
   if(!linkUp){
     pill.classList.add('warn'); txt.textContent = s ? 'Reconnecting' : 'Connecting';
   } else if(s){
-    const all = AGG.all;
-    const total = Math.max(s.expected||0, all ? all.n : 0);
-    const conn = all ? all.conn : 0;
+    const total = Math.max(s.expected||0, accts.length);
+    const conn = accts.filter(a => a.connected).length;
     pill.classList.toggle('warn',conn<total);
     txt.textContent = 'Live · '+conn+' of '+total;
   }
