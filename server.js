@@ -182,7 +182,7 @@ function createApp(cfg, provider, history) {
       return send(res, 302, '', { Location: '/login' });
     }
 
-    if (p === '/' || p === '/index.html') return serveFile(res, 'index.html');
+    if (p === '/' || p === '/index.html' || p === '/wall') return serveFile(res, 'index.html');
     if (p === '/api/state') return json(res, 200, buildLive());
     if (p === '/api/series') return json(res, 200, buildSeries(url.searchParams.get('range')));
     if (p === '/api/stream') {
