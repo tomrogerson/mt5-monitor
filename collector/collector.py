@@ -48,6 +48,46 @@ def detect_server_offset(symbols):
     return None
 
 
+def period_starts_utc(tz_name):
+    """(start of this week [Monday], start of this month) in tz_name, as aware UTC datetimes."""
+    try:
+        now = datetime.now(ZoneInfo(tz_name)) if ZoneInfo is not None else datetime.now().astimezone()
+    except Exception:
+        now = datetime.now().astimezone()
+    day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week = day - timedelta(days=day.weekday())
+    month = day.replace(day=1)
+    return week.astimezone(timezone.utc), month.astimezone(timezone.utc)
+
+
+def period_pnl(tz_name, offset):
+    """Closed-trade P&L (profit + commission + swap + fee) for this week and this month."""
+    week, month = period_starts_utc(tz_name)
+    wk_s = int(week.timestamp()) + offset
+    mo_s = int(month.timestamp()) + offset
+    frm = datetime.fromtimestamp(min(wk_s, mo_s) - 86400, tz=timezone.utc)
+    to = datetime.fromtimestamp(time.time() + offset + 86400, tz=timezone.utc)
+    deals = mt5.history_deals_get(frm, to) or []
+    groups = {}
+    for d in deals:
+        if d.type not in (mt5.DEAL_TYPE_BUY, mt5.DEAL_TYPE_SELL):
+            continue
+        g = groups.setdefault(d.position_id, {"pnl": 0.0, "t": 0, "closed": False})
+        g["pnl"] += d.profit + d.commission + d.swap + getattr(d, "fee", 0.0)
+        if d.entry in (mt5.DEAL_ENTRY_OUT, mt5.DEAL_ENTRY_OUT_BY, mt5.DEAL_ENTRY_INOUT):
+            g["closed"] = True
+            g["t"] = max(g["t"], d.time)
+    w = m = 0.0
+    for g in groups.values():
+        if not g["closed"]:
+            continue
+        if g["t"] >= wk_s:
+            w += g["pnl"]
+        if g["t"] >= mo_s:
+            m += g["pnl"]
+    return w, m
+
+
 def collect(name, group, tz_name, offset_hours, state):
     info = mt5.account_info()
     term = mt5.terminal_info()
@@ -102,6 +142,16 @@ def collect(name, group, tz_name, offset_hours, state):
         "symbol": g["symbol"], "dir": g["dir"], "lots": g["lots"], "pnl": g["pnl"],
     } for g in groups.values() if g["closed"]]
 
+    # Week / month totals need a long history query, so refresh them once a minute only.
+    if time.time() - state.get("per_at", 0) > 60:
+        try:
+            state["per"] = period_pnl(tz_name, offset)
+            state["per_at"] = time.time()
+        except Exception as e:
+            log(name, f"week/month totals failed: {e}")
+            state["per_at"] = time.time() - 50  # retry in ~10 s
+    per = state.get("per")
+
     ml = info.margin_level if info.margin and info.margin > 0 else None
     payload = {
         "id": f"{info.server}:{info.login}",
@@ -112,12 +162,15 @@ def collect(name, group, tz_name, offset_hours, state):
         "connected": bool(term.connected) if term else True,
         "demo": info.trade_mode in (mt5.ACCOUNT_TRADE_MODE_DEMO, mt5.ACCOUNT_TRADE_MODE_CONTEST),
         "balance": info.balance,
+        "credit": info.credit,
         "equity": info.equity,
         "margin": info.margin,
         "marginLevel": ml,
         "positions": pos_out,
         "closed": closed,
     }
+    if per:
+        payload["pnlWeek"], payload["pnlMonth"] = per
     if group:
         payload["group"] = group
     return payload
