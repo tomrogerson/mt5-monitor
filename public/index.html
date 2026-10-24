@@ -298,7 +298,7 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
         <button type="button" data-r="24h">24H</button><button type="button" data-r="7d">7D</button><button type="button" data-r="30d">30D</button><button type="button" data-r="1y">1Y</button>
       </div>
       <div class="stats">
-        <div class="stat"><div class="label">Floating P&amp;L</div><div class="v num" id="sFloat">-</div></div>
+        <div class="stat"><div class="label">Floating P&amp;L</div><div class="v num pl flat" id="sFloat">-</div></div>
         <div class="stat"><div class="label">Closed today</div><div class="v num" id="sToday">-</div></div>
         <div class="stat"><div class="label">Open trades</div><div class="v num" id="sOpen">-</div></div>
         <div class="stat"><div class="label">Closed this week</div><div class="v num" id="sWeek">-</div></div>
@@ -730,7 +730,9 @@ function paintSummary(){
   const label = tab==='overview' ? 'Total equity' : (GROUP[tab]?GROUP[tab].label:'')+' equity';
   $('totalLabel').textContent = label+' · '+o.n+' accounts';
   $('total').textContent = money(o.eq);
-  const sf = $('sFloat'); sf.textContent = money(o.fl,{sign:true}); sf.className = 'v num '+cls(o.fl);
+  const sf = $('sFloat');
+  if(sf._tab!==tab){ sf._tab=tab; sf._v=undefined; sf.textContent=''; }   // no flash when switching tabs
+  setPL(sf,o.fl);
   const st = $('sToday'); st.textContent = money(o.cl,{sign:true}); st.className = 'v num '+cls(o.cl);
   const sw = $('sWeek'), sm = $('sMonth');
   sw.textContent = o.haveWk ? money(o.wk,{sign:true}) : '-'; sw.className = 'v num '+(o.haveWk?cls(o.wk):'');
