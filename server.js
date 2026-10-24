@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { loadConfig, validateConfig, groupFor } = require('./lib/config');
 const { History } = require('./lib/history');
+const { startOfWeek } = require('./lib/tz');
 const auth = require('./lib/auth');
 
 const PUBLIC = path.join(__dirname, 'public');
@@ -39,9 +40,12 @@ function createApp(cfg, provider, history) {
     return list;
   }
 
+  function weekStartMs() { return startOfWeek(cfg.timezone, new Date()).getTime(); }
+
   function buildLive() {
     const snap = provider.snapshot();
-    const accounts = snap.accounts.map(a => Object.assign({}, a, { group: groupFor(a.name, cfg.groups, a.group) }));
+    const wk = weekStartMs();
+    const accounts = snap.accounts.map(a => Object.assign({}, a, { group: groupFor(a.name, cfg.groups, a.group), dd: history.drawdown(a.id, wk) }));
     const currencies = [...new Set(accounts.map(a => a.currency))];
     const notices = [];
     let symbol = '$';
@@ -82,7 +86,8 @@ function createApp(cfg, provider, history) {
   function sample() {
     const snap = provider.snapshot();
     const now = Date.now();
-    for (const a of snap.accounts) if (a.connected) history.add(a.id, now, a.equity);
+    const wk = weekStartMs();
+    for (const a of snap.accounts) if (a.connected) { history.add(a.id, now, a.equity); history.track(a.id, a.equity, wk); }
   }
 
   function send(res, status, body, headers) {
@@ -166,7 +171,7 @@ function createApp(cfg, provider, history) {
       const given = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
       if (!auth.checkPassword(given, cfg.ingestToken)) return json(res, 401, { error: 'unauthorised' });
       let body;
-      try { body = JSON.parse(await readBody(req, 1024 * 1024)); provider.ingest(body); } catch (e) { return json(res, 400, { error: String(e.message || e) }); }
+      try { body = JSON.parse(await readBody(req, 1024 * 1024)); const id = provider.ingest(body); if (body.connected !== false) history.track(id, body.equity, weekStartMs()); } catch (e) { return json(res, 400, { error: String(e.message || e) }); }
       return json(res, 200, { ok: true });
     }
 
