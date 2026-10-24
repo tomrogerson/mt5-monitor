@@ -447,11 +447,13 @@ function aggregate(list){
     const s = sev(a);
     if(s>0) o.att++;
     if(s>o.worst) o.worst=s;
-    f = Math.max(f,firstIdx(a.series));
+    f = list.indexOf(a)===0 ? firstIdx(a.series) : Math.min(f,firstIdx(a.series));
   }
   o.from = f;
   if(list.length){
-    for(let i=f;i<N;i++){let s=0;for(const a of list)s+=a.series[i];o.series[i]=s;}
+    /* an account with a shorter history (newly added) is held flat at its first value before that, so it does not cut the total's history short */
+    const last = list.map(a => { const v=a.series[firstIdx(a.series)]; return v===null?0:v; });
+    for(let i=f;i<N;i++){let s=0;list.forEach((a,k)=>{const v=a.series[i]; if(v!==null&&v!==undefined) last[k]=v; s+=last[k];});o.series[i]=s;}
   }
   return o;
 }
