@@ -229,6 +229,35 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
   .pill .dot,.tu,.td{animation:none}
   .chev{transition:none}
 }
+
+/* ---------- wide screens: summary pinned on the left, accounts on the right ---------- */
+@media (min-width:1100px){
+  .gutter{max-width:1680px}
+  #content:not([hidden]){display:grid;grid-template-columns:400px minmax(0,1fr);gap:0 24px;align-items:start}
+  #content > .panel{position:sticky;top:112px;margin-top:16px}
+  #content > div{min-width:0}
+  .bots,.cards{grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr))}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .shead:first-child,.row2{margin-top:16px}
+}
+@media (min-width:1700px){ #content:not([hidden]){grid-template-columns:440px minmax(0,1fr)} }
+
+/* ---------- /wall: every account on one screen, nothing to tap ---------- */
+.wall .tabs,.wall .chart,.wall .ranges,.wall .row2,.wall .spark,.wall .details,.wall .chev,.wall .flags{display:none!important}
+.wall .gutter{max-width:none}
+.wall #content:not([hidden]){display:block}
+.wall #content > .panel{position:static;margin-top:12px;padding:12px 16px}
+.wall .sum-head{align-items:center}
+.wall .total{font-size:30px}
+.wall .stats{grid-template-columns:repeat(6,minmax(0,1fr));margin-top:10px;padding-top:10px}
+.wall #viewBot{margin-top:12px}
+.wall .cards{grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:8px}
+.wall .card-top{padding:10px 12px;cursor:default}
+.wall .eq{font-size:19px}
+.wall .mrow{margin-top:8px}
+.wall .mini{margin-top:8px;padding-top:8px}
+.wall .sub{font-size:11px;margin-top:1px}
+.wall .card.s-warn,.wall .card.s-down,.wall .card.s-off{border-width:2px}
 </style>
 </head>
 <body>
@@ -293,7 +322,7 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
             <option value="attention">Attention first</option>
             <option value="pl-asc">Lowest P&amp;L first</option>
             <option value="pl-desc">Highest P&amp;L first</option>
-            <option value="equity">Highest equity</option>
+            <option value="equity" selected>Highest equity</option>
             <option value="name">Account order</option>
           </select>
         </label>
@@ -313,6 +342,8 @@ const RANGES = {
   '30d':{n:120,step:360,  label:'30 days'},
   '1y': {n:183,step:2880, label:'1 year'}
 };
+const WALL = location.pathname === '/wall';
+if(WALL) document.body.classList.add('wall');
 let range = '24h';
 try{ const r0 = localStorage.getItem('range'); if(RANGES[r0]) range = r0; }catch(e){}
 let N = RANGES[range].n;         // points in the curve
@@ -322,7 +353,7 @@ const $ = id => document.getElementById(id);
 
 let CUR = '$';
 let groups = [], GROUP = {}, accts = [];
-let structKey = '', tab = 'overview', sort = 'attention', scrub = null;
+let structKey = '', tab = 'overview', sort = 'equity', scrub = null;
 let chartSeries = null, chartFrom = 0;
 let seriesCache = {}, linkUp = false, lastState = null, hashTab = null;
 let nodes = [], botNodes = {}, alistKey = '__init__';
@@ -447,7 +478,7 @@ function cardHTML(a,i){
   return '<article class="card" data-i="'+i+'">'
   + '<div class="card-top" role="button" tabindex="0" aria-expanded="false" aria-controls="det-'+i+'">'
   +   '<div class="nrow"><span class="sdot"></span><strong class="aname">'+esc(a.name)+'</strong>'+(g&&g.tag?'<span class="tag">'+esc(g.tag)+'</span>':'')+'<span class="demo" hidden>DEMO</span><span class="chev" aria-hidden="true"></span></div>'
-  +   '<div class="sub">'+esc(a.server)+(a.login?' · #'+esc(a.login):'')+'</div>'
+  +   '<div class="sub">'+(WALL&&g?esc(g.label)+' · ':'')+esc(a.server)+(a.login?' · #'+esc(a.login):'')+'</div>'
   +   '<div class="flags" hidden></div>'
   +   '<div class="mrow"><div><div class="label">Equity</div><div class="eq num"></div></div>'
   +     '<div class="r"><div class="label">Floating</div><div class="fl num pl flat"></div></div></div>'
@@ -502,7 +533,7 @@ function applyView(){
   accts.slice().sort(cmp).forEach(a => cardsEl.appendChild(nodes[a.idx].root));
   let shown = 0;
   accts.forEach(function(a){
-    const ok = a.g===tab;
+    const ok = WALL || a.g===tab;
     nodes[a.idx].root.hidden = !ok;
     if(ok) shown++;
   });
@@ -511,10 +542,10 @@ function applyView(){
 function setTab(key,opt){
   tab = key;
   scrub = null;
-  $('viewOverview').hidden = key!=='overview';
-  $('viewBot').hidden = key==='overview';
+  $('viewOverview').hidden = WALL || key!=='overview';
+  $('viewBot').hidden = !WALL && key==='overview';
   tabsEl.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected',String(t.dataset.t===key)));
-  if(key!=='overview') applyView();
+  if(WALL || key!=='overview') applyView();
   paintAll();
   if(!(opt && opt.keepScroll)) window.scrollTo(0,0);
 }
@@ -843,10 +874,10 @@ function applyState(s){
     buildDOM();
     if(hashTab && GROUP[hashTab]){ tab = hashTab; hashTab = null; }
     if(tab!=='overview' && !GROUP[tab]) tab = 'overview';
-    $('viewOverview').hidden = tab!=='overview';
-    $('viewBot').hidden = tab==='overview';
+    $('viewOverview').hidden = WALL || tab!=='overview';
+    $('viewBot').hidden = !WALL && tab==='overview';
     tabsEl.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected',String(t.dataset.t===tab)));
-    if(tab!=='overview') applyView();
+    if(WALL || tab!=='overview') applyView();
   }
   paintAll();
 }
