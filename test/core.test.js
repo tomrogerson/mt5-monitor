@@ -202,3 +202,20 @@ test('history: hourly tier serves old ranges and survives save/load', () => {
   assert.strictEqual(month[0], null);          // before first sample
   assert.ok(month[119] === 1481);
 });
+
+test('drawdown: peak to trough, week resets', () => {
+  const h = new History(null);
+  h.track('a', 100, 1); h.track('a', 120, 1); h.track('a', 90, 1); h.track('a', 130, 1); h.track('a', 117, 1);
+  let d = h.drawdown('a', 1);
+  assert.strictEqual(d.all.amt, 30); assert.strictEqual(d.all.pct, 25);   // 120 -> 90
+  assert.strictEqual(d.week.amt, 30);
+  h.track('a', 100, 2);            // new week: starts fresh at 100
+  d = h.drawdown('a', 2);
+  assert.strictEqual(d.week.amt, 0); assert.strictEqual(d.all.amt, 30);
+});
+
+test('startOfWeek is a Monday 00:00 London', () => {
+  const { startOfWeek } = require('../lib/tz');
+  const w = startOfWeek('Europe/London', new Date('2026-10-24T02:00:00Z'));  // Saturday
+  assert.strictEqual(w.toISOString(), '2026-10-18T23:00:00.000Z');          // Mon 19 Oct 00:00 BST
+});
