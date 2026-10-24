@@ -156,3 +156,49 @@ test('server: /api/ingest needs the token and feeds the dashboard', async () => 
     await app.stop();
   }
 });
+
+test('push provider remembers accounts across restarts and flags demo', async () => {
+  const { PushProvider, STALE_MS, FORGET_MS } = require('../lib/providers/push');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pp-'));
+  const a = new PushProvider({ dataDir: dir });
+  await a.start();
+  a.ingest({ id: 's:1', name: 'Tom', balance: 10, equity: 11, demo: true }, Date.now());
+  a.ingest({ id: 's:2', name: 'Old', balance: 1, equity: 1 }, Date.now() - FORGET_MS - 1000);
+  await a.stop();
+
+  const b = new PushProvider({ dataDir: dir });
+  await b.start();
+  const snap = b.snapshot(Date.now() + STALE_MS + 1000);
+  await b.stop();
+  assert.strictEqual(snap.accounts.length, 1, 'week-old account is forgotten, recent one kept');
+  assert.strictEqual(snap.accounts[0].name, 'Tom');
+  assert.strictEqual(snap.accounts[0].connected, false);
+  assert.strictEqual(snap.accounts[0].demo, true);
+  assert.strictEqual(snap.accounts[0].equity, 11);
+});
+
+test('push provider treats a server name containing "demo" as a demo account', () => {
+  const { clean } = require('../lib/providers/push');
+  const base = { id: 'x', balance: 1, equity: 1 };
+  assert.strictEqual(clean({ ...base, server: 'PUPrime-Demo' }).demo, true);
+  assert.strictEqual(clean({ ...base, server: 'ICMarketsSC-DEMO-2' }).demo, true);
+  assert.strictEqual(clean({ ...base, server: 'ICMarketsSC-MT5-2' }).demo, false);
+  assert.strictEqual(clean({ ...base, server: 'Live', demo: true }).demo, true);
+});
+
+test('history: hourly tier serves old ranges and survives save/load', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'h-'));
+  const h = new History(dir);
+  const now = Date.now();
+  // 10 days of per-30-minute samples, equity rising 1 per sample
+  for (let k = 480; k >= 0; k--) h.add('a', now - k * 30 * 60000, 1000 + (480 - k));
+  h.save();
+  const h2 = new History(dir); h2.load();
+  const week = h2.series('a', 1481, now, 168, 3600000);
+  assert.strictEqual(week.length, 168);
+  assert.ok(week.filter(v => v === null).length === 0);
+  assert.ok(week[0] < week[100]);
+  const month = h2.series('a', 1481, now, 120, 6 * 3600000);
+  assert.strictEqual(month[0], null);          // before first sample
+  assert.ok(month[119] === 1481);
+});
