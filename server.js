@@ -1,4 +1,5 @@
 'use strict';
+const zlib = require('zlib');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -184,7 +185,8 @@ function createApp(cfg, provider, history) {
       if (!auth.checkPassword(given, cfg.ingestToken)) return json(res, 401, { error: 'unauthorised' });
       let body;
       try { body = JSON.parse(await readBody(req, 1024 * 1024)); const id = provider.ingest(body); if (body.connected !== false) history.track(id, body.equity - body.balance - (Number(body.credit) || 0), body.balance, weekStartMs()); } catch (e) { return json(res, 400, { error: String(e.message || e) }); }
-      return json(res, 200, { ok: true });
+      // bare 204: the collector posts every second per terminal and every reply counts as outbound bandwidth
+      res.writeHead(204); res.end(); return;
     }
 
     if (OPEN_FILES.has(p)) return serveFile(res, p.slice(1));
@@ -198,16 +200,20 @@ function createApp(cfg, provider, history) {
     if (p === '/api/state') return json(res, 200, buildLive());
     if (p === '/api/series') return json(res, 200, buildSeries(url.searchParams.get('range')));
     if (p === '/api/stream') {
-      res.writeHead(200, {
+      // The stream repeats the same big JSON every couple of seconds, so compress it (about 10x smaller).
+      const gz = /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''));
+      const hdr = {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
         'X-Accel-Buffering': 'no'
-      });
-      res.write('retry: 3000\n\n');
-      res.write('data: ' + JSON.stringify(buildLive()) + '\n\n');
+      };
+      if (gz) { hdr['Content-Encoding'] = 'gzip'; res._gz = zlib.createGzip({ level: 6 }); res._gz.pipe(res); res._gz.on('error', () => {}); }
+      res.writeHead(200, hdr);
+      streamWrite(res, 'retry: 3000\n\n');
+      streamWrite(res, 'data: ' + JSON.stringify(buildLive()) + '\n\n');
       clients.add(res);
-      req.on('close', () => clients.delete(res));
+      req.on('close', () => { clients.delete(res); if (res._gz) res._gz.destroy(); });
       return;
     }
     if (p.startsWith('/api/debug/') && typeof provider.raw === 'function') {
@@ -232,7 +238,11 @@ function createApp(cfg, provider, history) {
       return;
     }
     c._skipped = 0;
-    c.write(payload);
+    streamWrite(c, payload);
+  }
+
+  function streamWrite(c, payload) {
+    if (c._gz) { c._gz.write(payload); c._gz.flush(); } else c.write(payload);
   }
 
   function startTimers() {
@@ -252,7 +262,7 @@ function createApp(cfg, provider, history) {
 
   async function stop() {
     clearInterval(samplerTimer); clearInterval(saveTimer); clearInterval(pushTimer); clearInterval(server._ka);
-    for (const c of clients) { try { c.end(); } catch (e) { /* ignore */ } }
+    for (const c of clients) { try { c._gz ? c._gz.end() : c.end(); } catch (e) { /* ignore */ } }
     clients.clear();
     history.save();
     await provider.stop();
