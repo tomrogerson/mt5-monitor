@@ -144,7 +144,7 @@ test('server: /api/ingest needs the token and feeds the dashboard', async () => 
     assert.strictEqual((await req(port, 'POST', '/api/ingest', { body })).status, 401);
     assert.strictEqual((await req(port, 'POST', '/api/ingest', { body, headers: { authorization: 'Bearer nope' } })).status, 401);
     assert.strictEqual((await req(port, 'POST', '/api/ingest', { body: '{"id":"a"}', headers: { authorization: 'Bearer ' + cfg.ingestToken } })).status, 400);
-    assert.strictEqual((await req(port, 'POST', '/api/ingest', { body, headers: { authorization: 'Bearer ' + cfg.ingestToken } })).status, 200);
+    assert.strictEqual((await req(port, 'POST', '/api/ingest', { body, headers: { authorization: 'Bearer ' + cfg.ingestToken } })).status, 204);
     const good = await req(port, 'POST', '/login', { body: 'password=pw', headers: { 'content-type': 'application/x-www-form-urlencoded' } });
     const cookie = good.headers['set-cookie'][0].split(';')[0];
     const st = JSON.parse((await req(port, 'GET', '/api/state', { headers: { cookie } })).body);
