@@ -162,6 +162,8 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .bn{font-size:12px;color:var(--fg-2);white-space:nowrap}
 .sdot{width:8px;height:8px;border-radius:50%;background:var(--up);flex:none}
 .sdot.s3{background:var(--fg-3)}
+.noflt{visibility:hidden}  /* floating P&L only shows while there are open trades */
+.sdot.idle{visibility:hidden}  /* dot = open trades; hidden (space kept) when there are none */
 .sdot.s2{background:var(--down)}
 .sdot.s1{background:var(--warn)}
 .card.s-warn .sdot{background:var(--warn)}
@@ -468,7 +470,7 @@ const SPARK = '<div class="spark"><svg viewBox="0 0 300 32" preserveAspectRatio=
 
 function botHTML(g){
   return '<div class="bot" role="button" tabindex="0" data-g="'+esc(g.key)+'">'
-  + '<div class="nrow"><strong class="aname">'+esc(g.label)+'</strong>'+(g.tag?'<span class="tag">'+esc(g.tag)+'</span>':'')+'<span class="bn"></span><span class="chev go" aria-hidden="true"></span></div>'
+  + '<div class="nrow"><span class="sdot idle"></span><strong class="aname">'+esc(g.label)+'</strong>'+(g.tag?'<span class="tag">'+esc(g.tag)+'</span>':'')+'<span class="bn"></span><span class="chev go" aria-hidden="true"></span></div>'
   + '<div class="flags" hidden></div>'
   + '<div class="mrow"><div><div class="label">Equity</div><div class="eq num"></div></div>'
   +   '<div class="r"><div class="label">Floating</div><div class="fl num pl flat"></div></div></div>'
@@ -509,7 +511,7 @@ function buildDOM(){
   groups.forEach(function(g,i){
     const root = botsEl.children[i];
     const q = s => root.querySelector(s);
-    botNodes[g.key] = {root:root,bn:q('.bn'),flags:q('.flags'),eq:q('.eq'),fl:q('.fl'),spark:q('.spark'),ln:q('.spark .ln'),
+    botNodes[g.key] = {root:root,dot:q('.sdot'),bn:q('.bn'),flags:q('.flags'),eq:q('.eq'),fl:q('.fl'),spark:q('.spark'),ln:q('.spark .ln'),
       area:q('.spark .area'),edot:q('.edot'),tdy:q('.tdy'),wk:q('.wk'),mo:q('.mo'),onl:q('.onl')};
   });
   cardsEl.innerHTML = accts.map(cardHTML).join('');
@@ -517,7 +519,7 @@ function buildDOM(){
     const root = cardsEl.children[i];
     const q = s => root.querySelector(s);
     if(a.open){ root.classList.add('open'); }
-    return {root:root,top:q('.card-top'),demo:q('.demo'),flags:q('.flags'),eq:q('.eq'),fl:q('.fl'),bal:q('.bal'),
+    return {root:root,top:q('.card-top'),dot:q('.sdot'),demo:q('.demo'),flags:q('.flags'),eq:q('.eq'),fl:q('.fl'),bal:q('.bal'),
       wk:q('.wk'),mo:q('.mo'),tdy:q('.tdy'),spark:q('.spark'),ln:q('.spark .ln'),area:q('.spark .area'),edot:q('.edot'),det:q('.details')};
   });
   accts.forEach(function(a,i){
@@ -666,6 +668,8 @@ function statText(v,bal){ const r = retPct(v,bal); return money(v,{sign:true})+(
 function paintCard(a){
   const n = nodes[a.idx];
   n.demo.hidden = !a.demo;
+  n.dot.classList.toggle('idle',!(a.pos&&a.pos.length));
+  n.fl.parentNode.classList.toggle('noflt',!(a.pos&&a.pos.length));
   n.eq.textContent = money(a.equity);
   setPL(n.fl,a.float);
   n.bal.textContent = money(a.bal,{dec:0});
@@ -684,6 +688,8 @@ function paintBots(){
   groups.forEach(function(g){
     const o = AGG[g.key], n = botNodes[g.key];
     n.bn.textContent = o.n+' accounts';
+    n.dot.classList.toggle('idle',!(o.op>0));
+    n.fl.parentNode.classList.toggle('noflt',!(o.op>0));
     n.eq.textContent = money(o.eq);
     setPL(n.fl,o.fl);
     setPer(n.tdy,o.cl,o.bal);
@@ -742,6 +748,7 @@ function paintSummary(){
   const sf = $('sFloat');
   if(sf._tab!==tab){ sf._tab=tab; sf._v=undefined; sf.textContent=''; }   // no flash when switching tabs
   setPL(sf,o.fl);
+  sf.parentNode.classList.toggle('noflt',!(o.op>0));
   const st = $('sToday'); st.innerHTML = statText(o.cl,o.bal); st.className = 'v num '+cls(o.cl);
   const sw = $('sWeek'), sm = $('sMonth');
   sw.innerHTML = o.haveWk ? statText(o.wk,o.balWk) : '-'; sw.className = 'v num '+(o.haveWk?cls(o.wk):'');
