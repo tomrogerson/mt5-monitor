@@ -946,7 +946,13 @@ function connect(){
 const h = (location.hash||'').replace('#','').toLowerCase();
 if(h && h!=='overview') hashTab = h;
 connect();
-setInterval(loadSeries,60000);
+/* a hidden tab or locked phone does not need the live stream: close it to save bandwidth, reopen on return (the wall view stays live) */
+document.addEventListener('visibilitychange', function(){
+  if(typeof WALL!=='undefined' && WALL) return;
+  if(document.hidden){ if(es){ try{es.close();}catch(e){} es=null; linkUp=false; } }
+  else if(!es || es.readyState===2){ connect(); loadSeries(); }
+});
+setInterval(function(){ if(!document.hidden) loadSeries(); },60000);
 setInterval(function(){ if(lastState) paintStatus(); },5000);
 })();
 </script>
