@@ -163,7 +163,7 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .sdot{width:8px;height:8px;border-radius:50%;background:var(--up);flex:none}
 .sdot.s3{background:var(--fg-3)}
 .noflt{visibility:hidden}  /* floating P&L only shows while there are open trades */
-.sdot.idle{visibility:hidden}  /* dot = open trades; hidden (space kept) when there are none */
+.sdot.idle{display:none}  /* dot = open trades; removed (name slides left) when there are none */
 .sdot.s2{background:var(--down)}
 .sdot.s1{background:var(--warn)}
 .card.s-warn .sdot{background:var(--warn)}
