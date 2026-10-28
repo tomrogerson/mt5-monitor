@@ -398,6 +398,43 @@ function seriesFor(id,equity){
   for(let i=0;i<N;i++){ if(s[i]===null) s[i]=prev; else prev=s[i]; }   // carry forward; leading nulls stay
   return s;
 }
+
+/* ---------- Bot 2 (Zenith4 / TingTong) estimated exit price ----------
+   The bot closes every leg on one side when that side's floating P/L (swap included) reaches
+   base lot x pip value x T(N), N = legs open on the side. T is reverse-engineered from the real bot's history
+   (base-lot pips; N=1 is assumed, 12+ rests on few examples, 15+ = break-even). */
+const ZT = [null,85,85,86,85,79.5,76.3,67.4,65.1,56.8,55.5,50.3,40.2,33.5,16.1,0];
+const PVSEED = {GBP:7.46,USD:10,EUR:9.3};
+const PVMEM = {};   // pip value per side, learned from how the floating P/L moves with price
+function exitEst(x,list){
+  const out = [], cc = x.currency||'GBP';
+  const groups = {};
+  list.forEach(function(p){
+    if(!/^[A-Z]{6}$/.test(p.sym) || /^(XAU|XAG|BTC|ETH)/.test(p.sym)) return;
+    const k = p.sym+(p.dir>0?'B':'S');
+    (groups[k]=groups[k]||[]).push(p);
+  });
+  Object.keys(groups).forEach(function(k){
+    const g = groups[k], n = g.length, dir = g[0].dir, sym = g[0].sym;
+    const pip = /JPY$/.test(sym) ? 0.01 : 0.0001;
+    let L=0, F=0, base=Infinity;
+    g.forEach(function(p){ L+=p.lots; F+=p.pnl; if(p.lots<base) base=p.lots; });
+    const cur = g[g.length-1].cur;
+    const mk = x.id+'|'+k, seed = PVSEED[cc]||8;
+    const m = PVMEM[mk] || (PVMEM[mk] = {pv:seed,cur:cur,F:F,L:L,n:n});
+    if(m.n===n && Math.abs(m.L-L)<1e-9 && Math.abs(cur-m.cur)>=pip*0.2){
+      const v = (F-m.F)/(((cur-m.cur)/pip)*dir*L);
+      if(v>seed*0.75 && v<seed*1.25) m.pv = v;
+      m.cur=cur; m.F=F;
+    } else if(m.n!==n || Math.abs(m.L-L)>1e-9){ m.n=n; m.L=L; m.cur=cur; m.F=F; }
+    const pv = m.pv, T = ZT[Math.min(n,15)];
+    const need = base*pv*T - F;                         // pounds still to make before the bot closes this side
+    const pips = need/(pv*L);                            // price move needed (in the side's favour)
+    out.push({sym:sym,dir:dir,n:n,lots:L,exit:cur+dir*pips*pip,pips:pips,money:need,cur:cur,
+              low:(n===1||n>=12), done:need<=0});
+  });
+  return out.sort(function(a,b){ return b.dir-a.dir; });
+}
 function mapAcct(x,idx,open){
   const a = {
     idx:idx,id:x.id,g:x.group,name:x.name,server:x.server||'',login:x.login||'',
@@ -407,6 +444,7 @@ function mapAcct(x,idx,open){
     pos:(x.positions||[]).map(p=>({ticket:p.ticket,sym:p.symbol,dir:p.dir,lots:p.lots,open:p.open,cur:p.cur,pnl:p.pnl})),
     closed:(x.closed||[]).map(t=>({t:t.t,sym:t.symbol,dir:t.dir,lots:t.lots,pnl:t.pnl}))
   };
+  if(a.g==='bot2' && a.connected && a.pos.length) a.exit = exitEst(x,a.pos); else a.exit = null;
   a.closedSum = (typeof x.closedSum==='number') ? x.closedSum : a.closed.reduce((s,t)=>s+t.pnl,0);
   a.closedN = (typeof x.closedCount==='number') ? x.closedCount : a.closed.length;
   a.mdd = x.dd || null;
@@ -420,7 +458,7 @@ function mapAcct(x,idx,open){
 /* ---------- status logic ---------- */
 function sev(a){
   if(!a.connected) return 3;
-  if(a.dd>0.05) return 2;
+  if(a.dd>0.10) return 2;
   if(a.ml!==null && a.ml<300) return 1;
   return 0;
 }
@@ -428,7 +466,7 @@ function flags(a){
   const f=[];
   if(!a.connected) f.push({k:'off',text:'Disconnected '+ago(a.lostAt)+' ago'});
   else {
-    if(a.dd>0.05) f.push({k:'down',text:'Drawdown '+(a.dd*100).toFixed(1)+'%'});
+    if(a.dd>0.10) f.push({k:'down',text:'Drawdown '+(a.dd*100).toFixed(1)+'%'});
     if(a.ml!==null && a.ml<300) f.push({k:'warn',text:'Margin level '+nf0.format(a.ml)+'%'});
   }
   return f;
@@ -592,7 +630,12 @@ function detailsHTML(a){
     + '<div class="dhead"><span class="label">Margin used</span><span class="num mut">'+(a.margin?money(a.margin):'—')+'</span></div>'
     + (a.mdd ? '<div class="dhead gap"><span class="label">Biggest drawdown · this week</span><span class="num '+(a.mdd.week.amt>0?'down':'mut')+'">'+(a.mdd.week.amt>0?MINUS+money(a.mdd.week.amt)+' · '+a.mdd.week.pct.toFixed(2)+'%':'None')+'</span></div>'
       + '<div class="dhead"><span class="label">Biggest drawdown · all time</span><span class="num '+(a.mdd.all.amt>0?'down':'mut')+'">'+(a.mdd.all.amt>0?MINUS+money(a.mdd.all.amt)+' · '+a.mdd.all.pct.toFixed(2)+'%':'None')+'</span></div>' : '')
-    + '<div class="dhead gap"><span class="label">Open positions</span><span class="num mut">'+a.pos.length+'</span></div>';
+    + '<div class="dhead gap"><span class="label">Open positions</span><span class="num mut">'+a.pos.length+'</span></div>'
+    + (a.exit ? a.exit.map(function(e){
+        const dg = priceDigits(e.cur);
+        const val = e.done ? 'At target now' : e.exit.toFixed(dg)+' · '+(e.pips>=0?'+':'')+e.pips.toFixed(1)+' pips · '+money(e.money,{sign:true});
+        return '<div class="dhead"><span class="label">Est. exit · '+(e.dir>0?'BUY':'SELL')+' ×'+e.n+(e.low?' (rough)':'')+'</span><span class="num '+(e.done?'up':'mut')+'">'+val+'</span></div>';
+      }).join('') : '');
   if(!a.connected) h += '<p class="none warn">Prices frozen. Last update '+ago(a.lostAt)+' ago.</p>';
   if(!a.pos.length) h += '<p class="none">No open positions.</p>';
   else h += a.pos.map(function(p){
