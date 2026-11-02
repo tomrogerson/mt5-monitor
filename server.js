@@ -52,6 +52,7 @@ function createApp(cfg, provider, history) {
     const snap = provider.snapshot();
     const wk = weekStartMs();
     const accounts = snap.accounts.map(a => Object.assign({}, a, {
+      flows: undefined,   // deposits/withdrawals go with /api/series, not the live stream
       group: groupFor(a.name, cfg.groups, a.group),
       dd: history.drawdown(a.id, wk),
       // the screen only lists the newest few closed trades, so send those plus the totals
@@ -92,8 +93,13 @@ function createApp(cfg, provider, history) {
     const snap = provider.snapshot();
     const now = Date.now();
     const series = {};
-    for (const a of snap.accounts) series[a.id] = history.series(a.id, a.equity, now, r.n, r.step);
-    return { now, range: RANGES[range] ? range : '24h', step: r.step, n: r.n, series };
+    const flows = {}, since = now - r.n * r.step;
+    for (const a of snap.accounts) {
+      series[a.id] = history.series(a.id, a.equity, now, r.n, r.step);
+      const f = (a.flows || []).filter(x => x[0] > since);
+      if (f.length) flows[a.id] = f;
+    }
+    return { now, range: RANGES[range] ? range : '24h', step: r.step, n: r.n, series, flows };
   }
 
   function sample() {
