@@ -255,3 +255,27 @@ test('FORGET_ACCOUNTS removes a stored account and its history on startup', asyn
   const h = new History(null); h.add('S:111', Date.now(), 5); h.forget(['S:111']);
   assert.strictEqual(h.series('S:111', 1, Date.now(), 3, 60000)[0], null);
 });
+
+test('deposits/withdrawals: kept between reports, served with /api/series, not in the live stream', async () => {
+  const { PushProvider } = require('../lib/providers/push');
+  const cfg = {
+    provider: 'push', port: 0, password: 'pw', sessionSecret: 'x'.repeat(32), pushMs: 500, ingestToken: 'T'.repeat(30),
+    timezone: 'Europe/London', trustProxy: false, groups: DEFAULT_GROUPS, dataDir: null, expectedAccounts: 0
+  };
+  const provider = new PushProvider(cfg);
+  const app = createApp(cfg, provider, new History(null));
+  await new Promise(r => app.server.listen(0, r));
+  const port = app.server.address().port;
+  const now = Date.now();
+  const send = o => req(port, 'POST', '/api/ingest', { body: JSON.stringify(Object.assign({ id: 'a:1', name: 'A', balance: 1000, equity: 1000, currency: 'GBP' }, o)), headers: { authorization: 'Bearer ' + cfg.ingestToken } });
+  try {
+    await send({ flows: [[now - 3600000, 500], [now - 9e9, 99], [0, 5], [now - 1000, 0]] });
+    await send({});   // a later report without flows keeps the list
+    const good = await req(port, 'POST', '/login', { body: 'password=pw', headers: { 'content-type': 'application/x-www-form-urlencoded' } });
+    const cookie = good.headers['set-cookie'][0].split(';')[0];
+    const ser = JSON.parse((await req(port, 'GET', '/api/series?range=24h', { headers: { cookie } })).body);
+    assert.deepStrictEqual(ser.flows['a:1'], [[now - 3600000, 500]]);   // old, zero and invalid entries are dropped
+    const st = JSON.parse((await req(port, 'GET', '/api/state', { headers: { cookie } })).body);
+    assert.strictEqual(st.accounts[0].flows, undefined);
+  } finally { app.server.close(); }
+});
