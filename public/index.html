@@ -361,7 +361,7 @@ let CUR = '$';
 let groups = [], GROUP = {}, accts = [];
 let structKey = '', tab = 'overview', sort = 'equity', scrub = null;
 let chartSeries = null, chartFrom = 0;
-let seriesCache = {}, linkUp = false, lastState = null, hashTab = null;
+let flowCache = {}, chartAgg = null, seriesCache = {}, linkUp = false, lastState = null, hashTab = null;
 let nodes = [], botNodes = {}, alistKey = '__init__';
 const AGG = {};
 
@@ -474,12 +474,15 @@ function flags(a){
 function flagsHTML(f){return f.map(x => '<span class="flag '+x.k+'">'+x.text+'</span>').join('');}
 
 /* ---------- aggregation: accounts of one bot are added together ---------- */
+/* PU Prime (Ting Tong) trades alone do not make the Bot 2 summary card show as active */
+const QUIET_LOGINS = new Set(['33801407']);
 function aggregate(list){
-  const o = {n:list.length,eq:0,fl:0,cl:0,wk:0,mo:0,haveWk:false,bal:0,balWk:0,op:0,conn:0,low:null,lowName:'',att:0,worst:0,from:0,
-             series:new Array(N).fill(null),c:{off:0,down:0,warn:0}};
+  const o = {n:list.length,eq:0,fl:0,cl:0,wk:0,mo:0,haveWk:false,bal:0,balWk:0,op:0,opx:0,conn:0,low:null,lowName:'',att:0,worst:0,from:0,
+             list:list,series:new Array(N).fill(null),c:{off:0,down:0,warn:0}};
   let f = 0;
   for(const a of list){
     o.eq+=a.equity; o.fl+=a.float; o.cl+=a.closedSum; o.op+=a.pos.length; o.bal+=a.bal;
+    if(!QUIET_LOGINS.has(String(a.login))) o.opx+=a.pos.length;   /* trades that count as 'active' on the group summary card */
     if(a.wk!==null){o.wk+=a.wk;o.mo+=a.mo;o.haveWk=true;o.balWk+=a.bal;}
     if(a.connected) o.conn++;
     if(a.connected && a.ml!==null && (o.low===null||a.ml<o.low)){o.low=a.ml;o.lowName=a.name;}
@@ -731,8 +734,8 @@ function paintBots(){
   groups.forEach(function(g){
     const o = AGG[g.key], n = botNodes[g.key];
     n.bn.textContent = o.n+' accounts';
-    n.dot.classList.toggle('idle',!(o.op>0));
-    n.fl.parentNode.classList.toggle('noflt',!(o.op>0));
+    n.dot.classList.toggle('idle',!(o.opx>0));
+    n.fl.parentNode.classList.toggle('noflt',!(o.opx>0));
     n.eq.textContent = money(o.eq);
     setPL(n.fl,o.fl);
     setPer(n.tdy,o.cl,o.bal);
@@ -784,6 +787,7 @@ function paintTabs(){
 function paintSummary(){
   const o = AGG[tab==='overview' ? 'all' : tab] || AGG.all;
   chartSeries = o.series;
+  chartAgg = o;
   chartFrom = o.from;
   const label = tab==='overview' ? 'Total equity' : (GROUP[tab]?GROUP[tab].label:'')+' equity';
   $('totalLabel').textContent = label+' · '+o.n+' accounts';
@@ -834,6 +838,14 @@ function axisLabel(d){
   return d.getDate()+' '+MON[d.getMonth()];
 }
 function fullLabel(d){ return range==='24h' ? hhmm(d) : d.getDate()+' '+MON[d.getMonth()]+' '+hhmm(d); }
+/* money paid in or out (and bonus credits) after the chart's start point, for the accounts being shown */
+function chartFlows(o,f){
+  if(!o||!o.list) return 0;
+  const t0 = timeAt(f).getTime();
+  let sum = 0;
+  o.list.forEach(function(a){ (flowCache[a.id]||[]).forEach(function(x){ if(x[0]>t0) sum += x[1]; }); });
+  return sum;
+}
 function timeAt(i){return new Date(Date.now()-(N-1-i)*STEP_MIN*60000);}
 function renderChart(){
   const tot = chartSeries;
@@ -879,10 +891,11 @@ function renderChart(){
     + '<circle class="end" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="4.5"/>' + xl + '</svg>';
   const cv=$('chgVal'), cs=$('chgSub');
   if(scrub===null){
-    const ch = tot[N-1]-tot[f];
+    const flw = chartFlows(chartAgg,f);          // deposits/withdrawals are not profit or loss
+    const ch = tot[N-1]-tot[f]-flw;
     cv.textContent = money(ch,{sign:true});
     cv.className = 'chg-val num '+cls(ch);
-    cs.textContent = (tot[f]?pct(ch/tot[f]*100):'')+(f===0?' · '+RANGES[range].label:'');
+    cs.textContent = (tot[f]?pct(ch/tot[f]*100):'')+(f===0?' · '+RANGES[range].label:'')+(Math.abs(flw)>=0.5?' · ex '+money(flw,{sign:true}):'');
   } else {
     cv.textContent = money(tot[li]);
     cv.className = 'chg-val num';
@@ -951,7 +964,7 @@ function paintRanges(){
 }
 function setRange(r){
   if(!RANGES[r] || r===range) return;
-  range = r; N = RANGES[r].n; STEP_MIN = RANGES[r].step; scrub = null; seriesCache = {};
+  range = r; N = RANGES[r].n; STEP_MIN = RANGES[r].step; scrub = null; seriesCache = {}; flowCache = {};
   try{ localStorage.setItem('range',r); }catch(e){}
   paintRanges();
   accts.forEach(a => { a.series = seriesFor(a.id,a.equity); });
@@ -967,7 +980,7 @@ function loadSeries(){
     .then(r => r.status===401 ? (location.href='/login', null) : r.json())
     .then(j => {
       if(!j || asked!==range) return;
-      seriesCache = j.series || {};
+      seriesCache = j.series || {}; flowCache = j.flows || {};
       accts.forEach(a => { a.series = seriesFor(a.id,a.equity); });
       paintAll();
     }).catch(function(){});
