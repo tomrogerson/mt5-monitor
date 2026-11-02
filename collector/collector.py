@@ -88,6 +88,18 @@ def period_pnl(tz_name, offset):
     return w, m
 
 
+def balance_flows(offset):
+    """Deposits, withdrawals and bonus credits of the last year as [time_ms, amount] (not trading results)."""
+    frm = datetime.fromtimestamp(time.time() + offset - 370 * 86400, tz=timezone.utc)
+    to = datetime.fromtimestamp(time.time() + offset + 86400, tz=timezone.utc)
+    kinds = [getattr(mt5, k) for k in ("DEAL_TYPE_BALANCE", "DEAL_TYPE_CREDIT") if hasattr(mt5, k)]
+    out = []
+    for d in (mt5.history_deals_get(frm, to) or []):
+        if d.type in kinds and d.profit != 0:
+            out.append([int((d.time - offset) * 1000), d.profit])
+    return out[-300:]
+
+
 def collect(name, group, tz_name, offset_hours, state):
     info = mt5.account_info()
     term = mt5.terminal_info()
@@ -152,6 +164,16 @@ def collect(name, group, tz_name, offset_hours, state):
             state["per_at"] = time.time() - 50  # retry in ~10 s
     per = state.get("per")
 
+    # Deposits / withdrawals change rarely: read them every 5 minutes and send them only then.
+    flows = None
+    if time.time() - state.get("fl_at", 0) > 300:
+        try:
+            flows = balance_flows(offset)
+            state["fl_at"] = time.time()
+        except Exception as e:
+            log(name, f"deposit/withdrawal history failed: {e}")
+            state["fl_at"] = time.time() - 270  # retry in ~30 s
+
     ml = info.margin_level if info.margin and info.margin > 0 else None
     payload = {
         "id": f"{info.server}:{info.login}",
@@ -171,6 +193,8 @@ def collect(name, group, tz_name, offset_hours, state):
     }
     if per:
         payload["pnlWeek"], payload["pnlMonth"] = per
+    if flows is not None:
+        payload["flows"] = flows
     if group:
         payload["group"] = group
     return payload
