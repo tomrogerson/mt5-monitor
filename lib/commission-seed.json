@@ -2,13 +2,11 @@
  "note": "Monthly profit per person from Star Bot Tracker (Bot 2), Oct 2025 to Oct 2026. OG Star Man is Tom's own account: 100% commission, treated as already received. Vantage Jul 2026 is the full account wipe-out.",
  "rates": {
   "Jason": 0.25,
-  "Vantage": 0.25,
   "Nigel": 0.1,
   "Jack": 0.1,
   "Sam": 0.1,
   "Lee": 0.1,
   "Ben": 0.1,
-  "PU Prime": 0.25,
   "Tony": 0.1,
   "G Bill": 0,
   "Tom": 0,
@@ -28,14 +26,12 @@
   },
   "2025-12": {
    "Tom": 774.23,
-   "Jason": 2025.75,
-   "Vantage": 340.43,
+   "Jason": 2366.18,
    "OG Star Man": 152.28
   },
   "2026-01": {
    "Tom": 573.47,
-   "Jason": 2326.65,
-   "Vantage": 877.02,
+   "Jason": 3203.67,
    "Nigel": 2382.99,
    "G Bill": 0,
    "OG Star Man": 89.56,
@@ -43,8 +39,7 @@
   },
   "2026-02": {
    "Tom": 281.16,
-   "Jason": 2803.32,
-   "Vantage": 848.33,
+   "Jason": 3651.65,
    "Nigel": 1432.84,
    "G Bill": 307.48,
    "Jack": 1159.59,
@@ -52,8 +47,7 @@
   },
   "2026-03": {
    "Tom": 437.14,
-   "Jason": 3296.33,
-   "Vantage": 1025.39,
+   "Jason": 4321.72,
    "Nigel": 1488.85,
    "G Bill": 380.23,
    "Jack": 4935.86,
@@ -63,8 +57,7 @@
   },
   "2026-04": {
    "Tom": 358.3,
-   "Jason": 2678.81,
-   "Vantage": 859.55,
+   "Jason": 3538.36,
    "Nigel": 1144.06,
    "G Bill": 301.23,
    "Jack": 4104.16,
@@ -76,8 +69,7 @@
   },
   "2026-05": {
    "Tom": -1119.65,
-   "Jason": 1359.93,
-   "Vantage": 762.45,
+   "Jason": 2122.38,
    "Nigel": 651.25,
    "G Bill": 176.79,
    "Jack": 837.32,
@@ -89,8 +81,7 @@
   },
   "2026-06": {
    "Tom": -115.83,
-   "Jason": 6322.92,
-   "Vantage": 2194.04,
+   "Jason": 8516.96,
    "Nigel": 2816.03,
    "G Bill": 762.58,
    "Jack": 0,
@@ -102,8 +93,7 @@
   },
   "2026-07": {
    "Tom": -547.97,
-   "Jason": 1431.99,
-   "Vantage": -14907.21,
+   "Jason": -13664.17,
    "Nigel": 1193.86,
    "G Bill": -661.61,
    "Jack": 0,
@@ -111,13 +101,11 @@
    "Tauro Markets": 0,
    "Sam": 1411,
    "Ben": 984.68,
-   "PU Prime": -188.95,
    "Andy": 1383.24
   },
   "2026-08": {
    "Tom": 50.01,
-   "Jason": 3168.9,
-   "Vantage": 0,
+   "Jason": 3735.0,
    "Nigel": 1782.92,
    "G Bill": 511.7,
    "Jack": 0,
@@ -125,13 +113,11 @@
    "Tauro Markets": 0,
    "Sam": 1962.5,
    "Ben": 1486.36,
-   "PU Prime": 566.1,
    "Andy": 2116.69
   },
   "2026-09": {
    "Tom": 41.19,
-   "Jason": -212.07,
-   "Vantage": 0,
+   "Jason": -316.96,
    "Nigel": 11.44,
    "G Bill": 23.41,
    "Jack": 0,
@@ -139,13 +125,11 @@
    "Tauro Markets": 0,
    "Sam": -138.03,
    "Ben": 483.27,
-   "PU Prime": -104.89,
    "Andy": -151.54
   },
   "2026-10": {
    "Tom": 696.32,
-   "Jason": 4118.31,
-   "Vantage": 0,
+   "Jason": 4784.27,
    "Nigel": 5589.57,
    "G Bill": 1734.85,
    "Jack": 0,
@@ -153,7 +137,6 @@
    "Tauro Markets": 0,
    "Sam": 6633.51,
    "Ben": 5056.71,
-   "PU Prime": 665.96,
    "Tony": 2903.66,
    "Andy": 6042.2
   }
@@ -162,7 +145,9 @@
   "OG Star Man"
  ],
  "alias": {
-  "Andy V": "Andy"
+  "Andy V": "Andy",
+  "Vantage": "Jason",
+  "PU Prime": "Jason"
  },
  "aliasPrefix": [
   [
