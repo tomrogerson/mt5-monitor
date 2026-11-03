@@ -289,13 +289,16 @@ test('commission: seed history, live months recorded, rates and paid ticks persi
   c.record([
     { group: 'b2', name: 'Jason', pnlMonth: 100, pnlLastMonth: 999 },   // Oct is in the tracker, so the live Bot 2 figure is ignored
     { group: 'b1', name: 'Jason', pnlMonth: 50, pnlLastMonth: 20 },     // Bot 1 is not in the tracker, so it adds to Oct
+    { group: 'b1', name: 'Andy V', pnlMonth: 5 },   // same person as Andy
     { group: 'g', name: 'Neymar', pnlMonth: 5 }, { group: 'b2', name: 'Demo', demo: true, pnlMonth: 7 }
   ], now);
   let v = c.view();
   assert.strictEqual(v.months['2026-11'].Jason, 150);
   assert.strictEqual(v.months['2026-10'].Jason, 4118.31 + 20);
+  assert.strictEqual(v.months['2026-11'].Andy, 5); assert.strictEqual(v.rates.Andy, 0.15); assert.ok(!v.months['2026-11']['Andy V']);
   assert.ok(!v.months['2026-11'].Neymar && !v.months['2026-11'].Demo);
-  assert.strictEqual(v.months['2026-07'].Vantage, 0);
+  assert.strictEqual(v.months['2026-07'].Vantage, -14907.21);   // the account was wiped out: a real loss
+  assert.strictEqual(v.months['2025-11']['OG Star Man'], 87.09); assert.strictEqual(v.rates['OG Star Man'], 1); assert.deepStrictEqual(v.selfPaid, ['OG Star Man']);
   assert.strictEqual(v.rates.Jason, 0.25);
   c.update({ rates: { Sparki: 0.1, Jason: 2 }, paid: { '2026-10|Jason': 500, 'bad': 1 } });
   v = c.view();
