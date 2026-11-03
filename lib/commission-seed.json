@@ -276,5 +276,19 @@
  "closed": [
   "Jack",
   "Tauro Markets"
- ]
+ ],
+ "start": {
+  "Bot 1": "2025-04",
+  "default": "2025-11"
+ },
+ "capitalFixed": {
+  "Bot 1": {
+   "Jason": [
+    [
+     "2025-04-01",
+     20000
+    ]
+   ]
+  }
+ }
 }
