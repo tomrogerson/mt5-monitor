@@ -295,10 +295,10 @@ test('commission: seed history, live months recorded, rates and paid ticks persi
   ], now);
   let v = c.view();
   assert.strictEqual(v.months['2026-11'].Jason, 150);
-  assert.strictEqual(v.months['2026-10'].Jason, 4118.31 + 20);
+  assert.ok(Math.abs(v.months['2026-10'].Jason - (4118.31 + 665.96 + 20)) < 0.005);   // Jason + PU Prime from the tracker, plus Bot 1 live
   assert.strictEqual(v.months['2026-11'].Andy, 15); assert.strictEqual(v.rates.Andy, 0.15); assert.ok(!v.months['2026-11']['Andy V']);
   assert.ok(!v.months['2026-11'].Neymar && !v.months['2026-11'].Demo);
-  assert.strictEqual(v.months['2026-07'].Vantage, -14907.21);   // the account was wiped out: a real loss
+  assert.ok(Math.abs(v.months['2026-07'].Jason - (1431.99 - 14907.21 - 188.95)) < 0.005);   // Vantage wipe-out (a real loss) and PU Prime count as Jason's
   assert.strictEqual(v.months['2025-11']['OG Star Man'], 87.09); assert.strictEqual(v.rates['OG Star Man'], 1); assert.deepStrictEqual(v.selfPaid, ['OG Star Man']);
   assert.strictEqual(v.rates.Jason, 0.25);
   c.update({ rates: { Jason: 0.5 }, paid: { '2026-10|Jason': 500, 'bad': 1 } });
