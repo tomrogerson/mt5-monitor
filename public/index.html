@@ -277,13 +277,13 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .cm-sels{display:flex;gap:14px;flex-wrap:wrap;justify-content:flex-end}
 .cm-pb{display:block;height:4px;border-radius:2px;background:var(--line);margin-top:4px;overflow:hidden}
 .cm-pb i{display:block;height:100%;background:var(--accent)}
-#cmCapWrap .cm-pt{min-width:760px}
+#cmCapWrap .cm-pt{min-width:900px}
 .cm-bar{margin-top:16px}
 .cm-total{margin-top:8px;background:var(--bg);border:1px solid var(--line);border-radius:12px;font-weight:700}
 .cm-total .cm-top{cursor:default}
 .cm-tw{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
 .cm-pt{min-width:780px}
-.cm-pr{display:grid;grid-template-columns:minmax(150px,1.5fr) repeat(6,minmax(0,1fr));gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);font-size:14px}
+.cm-pr{display:grid;grid-template-columns:minmax(150px,1.5fr) repeat(7,minmax(0,1fr));gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);font-size:14px}
 .cm-pr:last-child{border-bottom:0}
 .cm-pr > span:nth-child(n+2){text-align:right}
 .cm-pr.h{font:600 11px var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);padding-top:10px;padding-bottom:8px}
@@ -419,7 +419,7 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
       <div class="cm-list" id="cmList"></div>
       <div class="cm-total" id="cmTotal"></div>
       <div id="cmCapWrap" hidden>
-        <div class="shead"><span class="label">Initial capital outstanding</span><span class="num" id="cmCapSub">net of your commission, gross in grey</span></div>
+        <div class="shead"><span class="label">Initial capital returned</span><span class="num" id="cmCapSub">withdrawals less your commission = what is safe in their bank</span></div>
         <div class="cm-tw"><div class="cm-pt" id="cmCap"></div></div>
       </div>
       <div class="cm-foot">Commission is the rate times each month's closed profit. A losing month takes the same percentage off, so a person can be in credit. Owed is commission on finished months less payments received. Bot 2 months to October 2026 come from your Star Bot Tracker (from Nov 2025); Bot 1 and later months come from each account's MT5 history (Bot 1 from Apr 2025).</div>
@@ -1129,13 +1129,13 @@ function capCalc(){
       const rate = (typeof CM.rates[n]==='number') ? CM.rates[n] : 0;
       let g = 0; keys.forEach(k => { const v = mval(k,n,bot); if(v!==null) g += v; });
       const comm = g*rate, net = g-comm;
-      const vals = done.map(k => mval(k,n,bot)).filter(v => v!==null).slice(-6);
-      const ga = vals.length ? vals.reduce((t,v) => t+v,0)/vals.length : 0;
-      out.push({name:n,bot:bot,cap:cap,g:g,net:net,comm:comm,gAvg:ga,nAvg:ga*(1-rate),
+      const wl = ((CM.withdrawn||{})[bot]||{})[n], wd = wl ? wl.reduce((t,x) => t+x[1],0) : 0;
+      const back = wd-comm;   // cash out of the account, less the commission they owe you
+      out.push({name:n,bot:bot,cap:cap,g:g,net:net,comm:comm,wd:wd,hasWd:!!wl,back:back,
         closed: bot===CM.seedBot && CM.closed.indexOf(n)>=0});
     });
   });
-  return out.sort((a,b) => (b.net/b.cap)-(a.net/a.cap));
+  return out.sort((a,b) => (b.back/b.cap)-(a.back/a.cap));
 }
 function eta(left,avg,closed){
   if(left<=0) return 'Doubled';
@@ -1150,16 +1150,17 @@ function paintCap(){
   w.hidden = !rows.length;
   if(w.hidden) return;
   const small = t => '<small>'+t+'</small>';
-  let h = '<div class="cm-pr h"><span>Account</span><span>Capital in</span><span>Profit made</span><span>Left to double</span><span>Progress</span><span>Avg / month</span><span>Time to double</span></div>';
+  let h = '<div class="cm-pr h"><span>Account</span><span>Capital in</span><span>Withdrawn</span><span>Commission</span><span>Returned (net)</span><span>Left to return</span><span>Progress</span><span>Profit so far</span></div>';
   rows.forEach(function(r){
-    const pc = Math.max(0,Math.min(1,r.net/r.cap));
+    const left = r.cap-r.back, pc = Math.max(0,Math.min(1,r.back/r.cap));
     h += '<div class="cm-pr"><span><strong>'+esc(r.name)+'</strong>'+small(esc(r.bot)+(r.closed?' · closed':''))+'</span>'
       + '<span class="num">'+money(r.cap,{dec:0})+'</span>'
-      + '<span class="num '+cls(r.net)+'">'+money(r.net,{dec:0})+small('gross '+money(r.g,{dec:0}))+'</span>'
-      + '<span class="num">'+(r.cap-r.net>0?money(r.cap-r.net,{dec:0}):'—')+small(r.cap-r.g>0?'gross '+money(r.cap-r.g,{dec:0}):'gross done')+'</span>'
-      + '<span class="num">'+Math.round(r.net/r.cap*100)+'%'+small('gross '+Math.round(r.g/r.cap*100)+'%')+'<span class="cm-pb"><i style="width:'+(pc*100).toFixed(0)+'%"></i></span></span>'
-      + '<span class="num '+cls(r.nAvg)+'">'+(r.closed?'—':money(r.nAvg,{dec:0})+small('gross '+money(r.gAvg,{dec:0})))+'</span>'
-      + '<span class="num">'+eta(r.cap-r.net,r.nAvg,r.closed)+(r.closed?'':small('gross '+eta(r.cap-r.g,r.gAvg,false)))+'</span></div>';
+      + '<span class="num">'+(r.hasWd?money(r.wd,{dec:0}):'—')+'</span>'
+      + '<span class="num">'+(Math.abs(r.comm)>0.5?'−'+money(r.comm,{dec:0}):'—')+'</span>'
+      + '<span class="num '+cls(r.back)+'">'+money(r.back,{dec:0})+'</span>'
+      + '<span class="num">'+(left>0?money(left,{dec:0}):'Back ✓')+(left<0?small(money(-left,{dec:0})+' extra'):'')+'</span>'
+      + '<span class="num">'+Math.round(r.back/r.cap*100)+'%<span class="cm-pb"><i style="width:'+(pc*100).toFixed(0)+'%"></i></span></span>'
+      + '<span class="num '+cls(r.net)+'">'+money(r.net,{dec:0})+small('gross '+money(r.g,{dec:0}))+'</span></div>';
   });
   $('cmCap').innerHTML = h;
 }
