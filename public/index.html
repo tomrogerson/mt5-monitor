@@ -419,7 +419,7 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
       <div class="cm-list" id="cmList"></div>
       <div class="cm-total" id="cmTotal"></div>
       <div id="cmCapWrap" hidden>
-        <div class="shead"><span class="label">Initial capital returned</span><span class="num" id="cmCapSub">withdrawals less your commission = what is safe in their bank</span></div>
+        <div class="shead"><span class="label">Initial capital returned</span><span class="num" id="cmCapSub">everything in and everything out, less your commission</span></div>
         <div class="cm-tw"><div class="cm-pt" id="cmCap"></div></div>
       </div>
       <div class="cm-foot">Commission is the rate times each month's closed profit. A losing month takes the same percentage off, so a person can be in credit. Owed is commission on finished months less payments received. Bot 2 months to October 2026 come from your Star Bot Tracker (from Nov 2025); Bot 1 and later months come from each account's MT5 history (Bot 1 from Apr 2025).</div>
@@ -1150,7 +1150,7 @@ function paintCap(){
   w.hidden = !rows.length;
   if(w.hidden) return;
   const small = t => '<small>'+t+'</small>';
-  let h = '<div class="cm-pr h"><span>Account</span><span>Capital in</span><span>Withdrawn</span><span>Commission</span><span>Returned (net)</span><span>Left to return</span><span>Progress</span><span>Profit so far</span></div>';
+  let h = '<div class="cm-pr h"><span>Account</span><span>Total in</span><span>Total out</span><span>Commission</span><span>Returned (net)</span><span>Left to return</span><span>Progress</span><span>Profit so far</span></div>';
   rows.forEach(function(r){
     const left = r.cap-r.back, pc = Math.max(0,Math.min(1,r.back/r.cap));
     h += '<div class="cm-pr"><span><strong>'+esc(r.name)+'</strong>'+small(esc(r.bot)+(r.closed?' · closed':''))+'</span>'
