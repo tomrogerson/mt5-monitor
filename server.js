@@ -7,6 +7,7 @@ const { loadConfig, validateConfig, groupFor } = require('./lib/config');
 const { History } = require('./lib/history');
 const { startOfWeek } = require('./lib/tz');
 const auth = require('./lib/auth');
+const { Commission } = require('./lib/commission');
 
 const PUBLIC = path.join(__dirname, 'public');
 const N = 96;
@@ -32,6 +33,7 @@ function createProvider(cfg) {
 function createApp(cfg, provider, history) {
   const limiter = new auth.LoginLimiter(8, 10 * 60 * 1000);
   const clients = new Set();
+  const commission = new Commission(cfg);
   let samplerTimer = null, pushTimer = null, saveTimer = null;
 
   function visibleGroups(accounts) {
@@ -106,6 +108,7 @@ function createApp(cfg, provider, history) {
     const snap = provider.snapshot();
     const now = Date.now();
     const wk = weekStartMs();
+    commission.record(snap.accounts, now);
     for (const a of snap.accounts) if (a.connected) { history.add(a.id, now, a.equity); if (typeof provider.ingest !== 'function') history.track(a.id, a.equity - a.balance - (a.credit || 0), a.balance, wk, now, true); }
   }
 
@@ -204,6 +207,13 @@ function createApp(cfg, provider, history) {
 
     if (p === '/' || p === '/index.html' || p === '/wall') return serveFile(res, 'index.html');
     if (p === '/api/state') return json(res, 200, buildLive());
+    if (p === '/api/commission') {
+      if (req.method === 'POST') {
+        let b; try { b = JSON.parse(await readBody(req, 20000)); } catch (e) { return json(res, 400, { error: 'bad request' }); }
+        commission.update(b || {});
+      }
+      return json(res, 200, commission.view());
+    }
     if (p === '/api/series') return json(res, 200, buildSeries(url.searchParams.get('range')));
     if (p === '/api/stream') {
       // The stream repeats the same big JSON every couple of seconds, so compress it (about 10x smaller).
@@ -253,7 +263,7 @@ function createApp(cfg, provider, history) {
 
   function startTimers() {
     samplerTimer = setInterval(sample, 60 * 1000);
-    saveTimer = setInterval(() => history.save(), 5 * 60 * 1000);
+    saveTimer = setInterval(() => { history.save(); commission.save(); }, 5 * 60 * 1000);
     pushTimer = setInterval(() => {
       if (!clients.size) return;
       let payload;
@@ -270,7 +280,7 @@ function createApp(cfg, provider, history) {
     clearInterval(samplerTimer); clearInterval(saveTimer); clearInterval(pushTimer); clearInterval(server._ka);
     for (const c of clients) { try { c._gz ? c._gz.end() : c.end(); } catch (e) { /* ignore */ } }
     clients.clear();
-    history.save();
+    history.save(); commission.save();
     await provider.stop();
     await new Promise(r => server.close(r));
   }
