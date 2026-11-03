@@ -294,17 +294,17 @@ test('commission: seed history, live months recorded, rates and paid ticks persi
     { group: 'g', name: 'Neymar', pnlMonth: 5 }, { group: 'b2', name: 'Demo', demo: true, pnlMonth: 7 }
   ], now);
   let v = c.view();
-  assert.strictEqual(v.months['2026-11'].Jason, 150);
-  assert.ok(Math.abs(v.months['2026-10'].Jason - (4118.31 + 665.96 + 20)) < 0.005);   // Jason + PU Prime from the tracker, plus Bot 1 live
-  assert.strictEqual(v.months['2026-11'].Andy, 15); assert.strictEqual(v.rates.Andy, 0.15); assert.ok(!v.months['2026-11']['Andy V']);
+  assert.strictEqual(v.months['2026-11'].Jason['Bot 1'] + v.months['2026-11'].Jason['Bot 2'], 150);
+  assert.ok(Math.abs(v.months['2026-10'].Jason['Bot 2'] - (4118.31 + 665.96)) < 0.005 && v.months['2026-10'].Jason['Bot 1'] === 20);   // Jason + PU Prime from the tracker, plus Bot 1 live
+  assert.strictEqual(v.months['2026-11'].Andy['Bot 1'], 5); assert.strictEqual(v.months['2026-11'].Andy.Gold, 10); assert.deepStrictEqual(v.bots, ['Bot 1', 'Bot 2', 'Gold']); assert.strictEqual(v.rates.Andy, 0.15); assert.ok(!v.months['2026-11']['Andy V']); assert.strictEqual(v.capital.Jason.reduce((s, x) => s + x[1], 0), 50000);
   assert.ok(!v.months['2026-11'].Neymar && !v.months['2026-11'].Demo);
-  assert.ok(Math.abs(v.months['2026-07'].Jason - (1431.99 - 14907.21 - 188.95)) < 0.005);   // Vantage wipe-out (a real loss) and PU Prime count as Jason's
-  assert.strictEqual(v.months['2025-11']['OG Star Man'], 87.09); assert.strictEqual(v.rates['OG Star Man'], 1); assert.deepStrictEqual(v.selfPaid, ['OG Star Man']);
+  assert.ok(Math.abs(v.months['2026-07'].Jason['Bot 2'] - (1431.99 - 14907.21 - 188.95)) < 0.005);   // Vantage wipe-out (a real loss) and PU Prime count as Jason's
+  assert.strictEqual(v.months['2025-11']['OG Star Man']['Bot 2'], 87.09); assert.strictEqual(v.rates['OG Star Man'], 1); assert.deepStrictEqual(v.selfPaid, ['OG Star Man']);
   assert.strictEqual(v.rates.Jason, 0.25);
   c.update({ rates: { Jason: 0.5 }, paid: { '2026-10|Jason': 500, 'bad': 1 } });
   v = c.view();
   assert.strictEqual(v.rates.Sparki, 0.1); assert.strictEqual(v.rates.Jason, 0.25);   // rates are fixed: edits are ignored
   assert.strictEqual(v.paid['2026-10|Jason'], 500); assert.strictEqual(v.paid.bad, undefined);
   const again = new Commission(cfg).view();
-  assert.strictEqual(again.rates.Jason, 0.25); assert.strictEqual(again.payments.Andy.length, 4); assert.strictEqual(again.months['2026-11'].Jason, 150);
+  assert.strictEqual(again.rates.Jason, 0.25); assert.strictEqual(again.payments.Andy.length, 4); assert.strictEqual(again.months['2026-11'].Jason['Bot 2'], 100);
 });
