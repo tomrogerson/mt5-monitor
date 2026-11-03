@@ -279,3 +279,28 @@ test('deposits/withdrawals: kept between reports, served with /api/series, not i
     assert.strictEqual(st.accounts[0].flows, undefined);
   } finally { app.server.close(); }
 });
+
+test('commission: seed history, live months recorded, rates and paid ticks persist', () => {
+  const { Commission } = require('../lib/commission');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-'));
+  const cfg = { dataDir: dir, timezone: 'Europe/London', groups: [{ key: 'b1', label: 'Bot 1' }, { key: 'b2', label: 'Bot 2' }, { key: 'g', label: 'Gold' }] };
+  const c = new Commission(cfg);
+  const now = Date.UTC(2026, 10, 10, 12);
+  c.record([
+    { group: 'b2', name: 'Jason', pnlMonth: 100, pnlLastMonth: 999 },   // Oct is in the tracker, so the live Bot 2 figure is ignored
+    { group: 'b1', name: 'Jason', pnlMonth: 50, pnlLastMonth: 20 },     // Bot 1 is not in the tracker, so it adds to Oct
+    { group: 'g', name: 'Neymar', pnlMonth: 5 }, { group: 'b2', name: 'Demo', demo: true, pnlMonth: 7 }
+  ], now);
+  let v = c.view();
+  assert.strictEqual(v.months['2026-11'].Jason, 150);
+  assert.strictEqual(v.months['2026-10'].Jason, 4118.31 + 20);
+  assert.ok(!v.months['2026-11'].Neymar && !v.months['2026-11'].Demo);
+  assert.strictEqual(v.months['2026-07'].Vantage, 0);
+  assert.strictEqual(v.rates.Jason, 0.25);
+  c.update({ rates: { Sparki: 0.1, Jason: 2 }, paid: { '2026-10|Jason': 500, 'bad': 1 } });
+  v = c.view();
+  assert.strictEqual(v.rates.Sparki, 0.1); assert.strictEqual(v.rates.Jason, 0.25);   // 2 (200%) rejected
+  assert.strictEqual(v.paid['2026-10|Jason'], 500); assert.strictEqual(v.paid.bad, undefined);
+  const again = new Commission(cfg).view();
+  assert.strictEqual(again.rates.Sparki, 0.1); assert.strictEqual(again.months['2026-11'].Jason, 150);
+});
