@@ -102,8 +102,8 @@ HISTORY_FROM = "2025-04"   # config.json "history_from" overrides; the first mon
 
 
 def monthly_history(tz_name, offset, start_ym):
-    """Closed-trade P&L for every completed calendar month from start_ym, and the deposits, from the terminal's deal history.
-    Months before the account's first deal are left out. Returns ({"YYYY-MM": pnl}, [["YYYY-MM-DD", amount], ...])."""
+    """Closed-trade P&L for every completed calendar month from start_ym, and the deposits and withdrawals, from the terminal's deal history.
+    Months before the account's first deal are left out. Returns ({"YYYY-MM": pnl}, deposits, withdrawals), the last two as [["YYYY-MM-DD", amount], ...]."""
     try:
         tz = ZoneInfo(tz_name) if ZoneInfo is not None else datetime.now().astimezone().tzinfo
     except Exception:
@@ -117,15 +117,18 @@ def monthly_history(tz_name, offset, start_ym):
         if m > 12:
             y, m = y + 1, 1
     if not bounds:
-        return {}, []
+        return {}, [], []
     end_s = int(datetime(now.year, now.month, 1, tzinfo=tz).timestamp()) + offset
     frm = datetime.fromtimestamp(bounds[0][1] - 90 * 86400, tz=timezone.utc)
     to = datetime.fromtimestamp(time.time() + offset + 86400, tz=timezone.utc)
-    groups, deposits, first = {}, [], None
+    groups, deposits, withdrawals, first = {}, [], [], None
     for d in (mt5.history_deals_get(frm, to) or []):
         if d.type == getattr(mt5, "DEAL_TYPE_BALANCE", -1):
+            day = datetime.fromtimestamp(d.time - offset, tz=timezone.utc).strftime("%Y-%m-%d")
             if d.profit > 0:
-                deposits.append([datetime.fromtimestamp(d.time - offset, tz=timezone.utc).strftime("%Y-%m-%d"), round(d.profit, 2)])
+                deposits.append([day, round(d.profit, 2)])
+            elif d.profit < 0:
+                withdrawals.append([day, round(-d.profit, 2)])
             continue
         if d.type not in (mt5.DEAL_TYPE_BUY, mt5.DEAL_TYPE_SELL):
             continue
@@ -146,7 +149,7 @@ def monthly_history(tz_name, offset, start_ym):
                 key = k
         if key in out:
             out[key] += g["pnl"]
-    return {k: round(v, 2) for k, v in out.items()}, deposits[-100:]
+    return {k: round(v, 2) for k, v in out.items()}, deposits[-100:], withdrawals[-100:]
 
 
 def period_pnl(tz_name, offset):
@@ -307,7 +310,7 @@ def collect(name, group, tz_name, offset_hours, state):
     if lng:
         payload["pnlLastMonth"], payload["pnl90"], payload["pnlYear"] = lng
     if hist is not None:
-        payload["monthly"], payload["deposits"] = hist
+        payload["monthly"], payload["deposits"], payload["withdrawals"] = hist
     if group:
         payload["group"] = group
     return payload
