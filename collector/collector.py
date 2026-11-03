@@ -60,6 +60,95 @@ def period_starts_utc(tz_name):
     return week.astimezone(timezone.utc), month.astimezone(timezone.utc)
 
 
+def long_pnl(tz_name, offset):
+    """Closed-trade P&L for last calendar month, the last 90 days and this year (from 1 Jan), same method as period_pnl."""
+    try:
+        now = datetime.now(ZoneInfo(tz_name)) if ZoneInfo is not None else datetime.now().astimezone()
+    except Exception:
+        now = datetime.now().astimezone()
+    day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    month = day.replace(day=1)
+    last_month = (month - timedelta(days=1)).replace(day=1)
+    year = day.replace(month=1, day=1)
+    lm_s = int(last_month.timestamp()) + offset
+    mo_s = int(month.timestamp()) + offset
+    yr_s = int(year.timestamp()) + offset
+    d90_s = int(time.time()) + offset - 90 * 86400
+    frm = datetime.fromtimestamp(min(lm_s, yr_s, d90_s) - 86400, tz=timezone.utc)
+    to = datetime.fromtimestamp(time.time() + offset + 86400, tz=timezone.utc)
+    groups = {}
+    for d in (mt5.history_deals_get(frm, to) or []):
+        if d.type not in (mt5.DEAL_TYPE_BUY, mt5.DEAL_TYPE_SELL):
+            continue
+        g = groups.setdefault(d.position_id, {"pnl": 0.0, "t": 0, "closed": False})
+        g["pnl"] += d.profit + d.commission + d.swap + getattr(d, "fee", 0.0)
+        if d.entry in (mt5.DEAL_ENTRY_OUT, mt5.DEAL_ENTRY_OUT_BY, mt5.DEAL_ENTRY_INOUT):
+            g["closed"] = True
+            g["t"] = max(g["t"], d.time)
+    lm = d90 = ytd = 0.0
+    for g in groups.values():
+        if not g["closed"]:
+            continue
+        if lm_s <= g["t"] < mo_s:
+            lm += g["pnl"]
+        if g["t"] >= d90_s:
+            d90 += g["pnl"]
+        if g["t"] >= yr_s:
+            ytd += g["pnl"]
+    return lm, d90, ytd
+
+
+HISTORY_FROM = "2025-04"   # config.json "history_from" overrides; the first month to report closed P&L for
+
+
+def monthly_history(tz_name, offset, start_ym):
+    """Closed-trade P&L for every completed calendar month from start_ym, and the deposits, from the terminal's deal history.
+    Months before the account's first deal are left out. Returns ({"YYYY-MM": pnl}, [["YYYY-MM-DD", amount], ...])."""
+    try:
+        tz = ZoneInfo(tz_name) if ZoneInfo is not None else datetime.now().astimezone().tzinfo
+    except Exception:
+        tz = datetime.now().astimezone().tzinfo
+    now = datetime.now(tz)
+    y0, m0 = (int(x) for x in start_ym.split("-"))
+    bounds, y, m = [], y0, m0
+    while (y, m) < (now.year, now.month):
+        bounds.append((f"{y:04d}-{m:02d}", int(datetime(y, m, 1, tzinfo=tz).timestamp()) + offset))
+        m += 1
+        if m > 12:
+            y, m = y + 1, 1
+    if not bounds:
+        return {}, []
+    end_s = int(datetime(now.year, now.month, 1, tzinfo=tz).timestamp()) + offset
+    frm = datetime.fromtimestamp(bounds[0][1] - 90 * 86400, tz=timezone.utc)
+    to = datetime.fromtimestamp(time.time() + offset + 86400, tz=timezone.utc)
+    groups, deposits, first = {}, [], None
+    for d in (mt5.history_deals_get(frm, to) or []):
+        if d.type == getattr(mt5, "DEAL_TYPE_BALANCE", -1):
+            if d.profit > 0:
+                deposits.append([datetime.fromtimestamp(d.time - offset, tz=timezone.utc).strftime("%Y-%m-%d"), round(d.profit, 2)])
+            continue
+        if d.type not in (mt5.DEAL_TYPE_BUY, mt5.DEAL_TYPE_SELL):
+            continue
+        if first is None or d.time < first:
+            first = d.time
+        g = groups.setdefault(d.position_id, {"pnl": 0.0, "t": 0, "closed": False})
+        g["pnl"] += d.profit + d.commission + d.swap + getattr(d, "fee", 0.0)
+        if d.entry in (mt5.DEAL_ENTRY_OUT, mt5.DEAL_ENTRY_OUT_BY, mt5.DEAL_ENTRY_INOUT):
+            g["closed"] = True
+            g["t"] = max(g["t"], d.time)
+    out = {k: 0.0 for k, s in bounds if first is not None and s + 31 * 86400 > first}
+    for g in groups.values():
+        if not g["closed"] or g["t"] >= end_s:
+            continue
+        key = None
+        for k, s in bounds:
+            if g["t"] >= s:
+                key = k
+        if key in out:
+            out[key] += g["pnl"]
+    return {k: round(v, 2) for k, v in out.items()}, deposits[-100:]
+
+
 def period_pnl(tz_name, offset):
     """Closed-trade P&L (profit + commission + swap + fee) for this week and this month."""
     week, month = period_starts_utc(tz_name)
@@ -164,6 +253,16 @@ def collect(name, group, tz_name, offset_hours, state):
             state["per_at"] = time.time() - 50  # retry in ~10 s
     per = state.get("per")
 
+    # Last month / 90 days / this year need a long history query: refresh every 10 minutes only.
+    if time.time() - state.get("lng_at", 0) > 600:
+        try:
+            state["lng"] = long_pnl(tz_name, offset)
+            state["lng_at"] = time.time()
+        except Exception as e:
+            log(name, f"month/90-day/year totals failed: {e}")
+            state["lng_at"] = time.time() - 570  # retry in ~30 s
+    lng = state.get("lng")
+
     # Deposits / withdrawals change rarely: read them every 5 minutes and send them only then.
     flows = None
     if time.time() - state.get("fl_at", 0) > 300:
@@ -173,6 +272,16 @@ def collect(name, group, tz_name, offset_hours, state):
         except Exception as e:
             log(name, f"deposit/withdrawal history failed: {e}")
             state["fl_at"] = time.time() - 270  # retry in ~30 s
+
+    # Full monthly history (for the Commission tab) is heavy and rarely changes: read it every 6 hours and send it only then.
+    hist = None
+    if time.time() - state.get("hist_at", 0) > 6 * 3600:
+        try:
+            hist = monthly_history(tz_name, offset, HISTORY_FROM)
+            state["hist_at"] = time.time()
+        except Exception as e:
+            log(name, f"monthly history failed: {e}")
+            state["hist_at"] = time.time() - 6 * 3600 + 120  # retry in ~2 min
 
     ml = info.margin_level if info.margin and info.margin > 0 else None
     payload = {
@@ -195,6 +304,10 @@ def collect(name, group, tz_name, offset_hours, state):
         payload["pnlWeek"], payload["pnlMonth"] = per
     if flows is not None:
         payload["flows"] = flows
+    if lng:
+        payload["pnlLastMonth"], payload["pnl90"], payload["pnlYear"] = lng
+    if hist is not None:
+        payload["monthly"], payload["deposits"] = hist
     if group:
         payload["group"] = group
     return payload
@@ -225,6 +338,8 @@ def main():
     url, token = cfg["server_url"], cfg["token"]
     interval = max(1.0, float(cfg.get("interval_seconds", 2)))
     tz_name = cfg.get("timezone", "Europe/London")
+    global HISTORY_FROM
+    HISTORY_FROM = str(cfg.get("history_from", HISTORY_FROM))
     offset_hours = None
     for t in cfg.get("terminals", []):
         if t.get("name") == a.name and t.get("server_utc_offset_hours") is not None:
