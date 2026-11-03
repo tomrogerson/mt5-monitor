@@ -281,6 +281,9 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .cm-bar{margin-top:16px}
 .cm-total{margin-top:8px;background:var(--bg);border:1px solid var(--line);border-radius:12px;font-weight:700}
 .cm-total .cm-top{cursor:default}
+.cm-mrow.sub{font-size:12px;color:var(--fg-3);padding-top:0;padding-bottom:3px}
+.cm-mrow.sub>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:10px}
+.cm-mrow.sub small{font:500 11px var(--font-body);color:var(--fg-3)}
 .cm-tw{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
 .cm-pt{min-width:780px}
 .cm-pr{display:grid;grid-template-columns:minmax(150px,1.5fr) repeat(7,minmax(0,1fr));gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);font-size:14px}
@@ -312,7 +315,7 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .cm-btn.off{color:var(--fg-2);background:transparent;border-color:var(--line)}
 .cm-pl{margin-bottom:6px}
 .cm-pay-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
-.cm-mrow{display:grid;grid-template-columns:62px minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+.cm-mrow{display:grid;grid-template-columns:150px minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
 .cm-mrow:last-child{border-bottom:0}
 .cm-mrow.h{font-size:11px;color:var(--fg-3);letter-spacing:.06em;text-transform:uppercase}
 .cm-mrow .r{text-align:right}
@@ -1072,7 +1075,8 @@ function commCalc(){
       const profit = mval(k,n,bot);
       if(profit===null) return;
       const comm = rate>0 ? profit*rate : 0;   /* a losing month takes the same % off */
-      rows.push({k:k,profit:profit,comm:comm,cur:k===CM.now});
+      const sr = (((CM.src||{})[k]||{})[n]||[]).filter(x => (bot==='all'||x[0]===bot) && Math.abs(x[2])>0.005);
+      rows.push({k:k,profit:profit,comm:comm,cur:k===CM.now,src:sr});
     });
     const sum = (f,fn) => rows.filter(f).reduce((t,r) => t+fn(r),0);
     const pays = (CM.payments[n]||[]).slice().sort((x,y) => x[0]<y[0]?1:-1);
@@ -1113,6 +1117,9 @@ function personHTML(p,i,sel){
       + '<div class="cm-mrow h"><span>Month</span><span class="r">Profit</span><span class="r">Commission</span></div>';
     p.rows.slice().reverse().forEach(function(r){
       h += '<div class="cm-mrow"><span>'+mLabel(r.k)+(r.cur?'*':'')+'</span><span class="r num '+cls(r.profit)+'">'+money(r.profit)+'</span><span class="r num '+cls(r.comm)+'">'+(Math.abs(r.comm)>0.005?money(r.comm):'—')+'</span></div>';
+      if(r.src && r.src.length>1) r.src.forEach(function(x){
+        h += '<div class="cm-mrow sub"><span>'+esc(x[1])+'<small> '+esc(x[0])+'</small></span><span class="r num '+cls(x[2])+'">'+money(x[2])+'</span><span class="r num '+cls(x[2])+'">'+(p.rate>0?money(x[2]*p.rate):'—')+'</span></div>';
+      });
     });
     h += '</div></div>';
   }
@@ -1120,22 +1127,24 @@ function personHTML(p,i,sel){
 }
 
 function capCalc(){
-  const keys = Object.keys(CM.months).sort(), done = keys.filter(k => k!==CM.now), out = [];
-  Object.keys(CM.capital).forEach(function(bot){
+  const keys = Object.keys(CM.months).sort(), out = [], seen = {}, pairs = [];
+  const add = (bot,n) => { const k = bot+'|'+n; if(!seen[k]){ seen[k] = 1; pairs.push([bot,n]); } };
+  Object.keys(CM.capital).forEach(bot => Object.keys(CM.capital[bot]).forEach(n => add(bot,n)));
+  Object.keys(CM.withdrawn||{}).forEach(bot => Object.keys(CM.withdrawn[bot]).forEach(n => add(bot,n)));
+  keys.forEach(k => Object.keys(CM.months[k]).forEach(n => Object.keys(CM.months[k][n]).forEach(bot => add(bot,n))));   // every account appears, even with nothing in yet
+  pairs.forEach(function(pr){
+    const bot = pr[0], n = pr[1];
     if(cmBot!=='all' && cmBot!==bot) return;
-    Object.keys(CM.capital[bot]).forEach(function(n){
-      const cap = CM.capital[bot][n].reduce((t,x) => t+x[1],0);
-      if(cap<=0) return;
-      const rate = (typeof CM.rates[n]==='number') ? CM.rates[n] : 0;
-      let g = 0; keys.forEach(k => { const v = mval(k,n,bot); if(v!==null) g += v; });
-      const comm = g*rate, net = g-comm;
-      const wl = ((CM.withdrawn||{})[bot]||{})[n], wd = wl ? wl.reduce((t,x) => t+x[1],0) : 0;
-      const back = wd-comm;   // cash out of the account, less the commission they owe you
-      out.push({name:n,bot:bot,cap:cap,g:g,net:net,comm:comm,wd:wd,hasWd:!!wl,back:back,
-        closed: bot===CM.seedBot && CM.closed.indexOf(n)>=0});
-    });
+    const cl = ((CM.capital||{})[bot]||{})[n], cap = cl ? cl.reduce((t,x) => t+x[1],0) : 0;
+    const rate = (typeof CM.rates[n]==='number') ? CM.rates[n] : 0;
+    let g = 0; keys.forEach(k => { const v = mval(k,n,bot); if(v!==null) g += v; });
+    const comm = g*rate, net = g-comm;
+    const wl = ((CM.withdrawn||{})[bot]||{})[n], wd = wl ? wl.reduce((t,x) => t+x[1],0) : 0;
+    const back = wd-comm;   // cash out of the account, less the commission they owe you
+    out.push({name:n,bot:bot,cap:cap,g:g,net:net,comm:comm,wd:wd,hasWd:!!wl,back:back,noDep:!(cap>0),
+      closed: bot===CM.seedBot && CM.closed.indexOf(n)>=0});
   });
-  return out.sort((a,b) => (b.back/b.cap)-(a.back/a.cap));
+  return out.sort((a,b) => (b.cap>0)-(a.cap>0) || (b.cap>0 ? (b.back/b.cap)-(a.back/a.cap) : a.name.localeCompare(b.name)));
 }
 function eta(left,avg,closed){
   if(left<=0) return 'Doubled';
@@ -1152,14 +1161,14 @@ function paintCap(){
   const small = t => '<small>'+t+'</small>';
   let h = '<div class="cm-pr h"><span>Account</span><span>Total in</span><span>Total out</span><span>Commission</span><span>Returned (net)</span><span>Left to return</span><span>Progress</span><span>Profit so far</span></div>';
   rows.forEach(function(r){
-    const left = r.cap-r.back, pc = Math.max(0,Math.min(1,r.back/r.cap));
-    h += '<div class="cm-pr"><span><strong>'+esc(r.name)+'</strong>'+small(esc(r.bot)+(r.closed?' · closed':''))+'</span>'
+    const left = r.cap-r.back, pc = r.cap>0 ? Math.max(0,Math.min(1,r.back/r.cap)) : 0;
+    h += '<div class="cm-pr"><span><strong>'+esc(r.name)+'</strong>'+small(esc(r.bot)+(r.closed?' · closed':'')+(r.noDep?' · no deposit seen':''))+'</span>'
       + '<span class="num">'+money(r.cap,{dec:0})+'</span>'
       + '<span class="num">'+(r.hasWd?money(r.wd,{dec:0}):'—')+'</span>'
       + '<span class="num">'+(Math.abs(r.comm)>0.5?'−'+money(r.comm,{dec:0}):'—')+'</span>'
       + '<span class="num '+cls(r.back)+'">'+money(r.back,{dec:0})+'</span>'
-      + '<span class="num">'+(left>0?money(left,{dec:0}):'Back ✓')+(left<0?small(money(-left,{dec:0})+' extra'):'')+'</span>'
-      + '<span class="num">'+Math.round(r.back/r.cap*100)+'%<span class="cm-pb"><i style="width:'+(pc*100).toFixed(0)+'%"></i></span></span>'
+      + '<span class="num">'+(r.noDep?'—':(left>0?money(left,{dec:0}):'Back ✓')+(left<0?small(money(-left,{dec:0})+' extra'):''))+'</span>'
+      + '<span class="num">'+(r.cap>0?Math.round(r.back/r.cap*100)+'%':'—')+'<span class="cm-pb"><i style="width:'+(pc*100).toFixed(0)+'%"></i></span></span>'
       + '<span class="num '+cls(r.net)+'">'+money(r.net,{dec:0})+small('gross '+money(r.g,{dec:0}))+'</span></div>';
   });
   $('cmCap').innerHTML = h;
