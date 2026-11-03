@@ -121,6 +121,8 @@ main{padding-top:14px;padding-bottom:40px}
 .chg{text-align:right;min-width:0;flex:1 1 auto}
 .chg-val{font-size:18px;font-weight:600}
 .chg-sub{font-size:12px;color:var(--fg-2)}
+.chg-ex{font-size:11px;color:var(--fg-3);min-height:0}
+.chg-ex:empty{display:none}
 .chart{position:relative;height:156px;margin-top:14px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .chart svg{display:block}
 .gl{stroke:var(--line);stroke-width:1;opacity:.75}
@@ -214,6 +216,7 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .arow .af{grid-column:1 / -1;margin-top:0}
 
 .details{border-top:1px solid var(--line);padding:12px 14px 14px}
+.mini-long{margin-top:0;padding-top:0;border-top:0;margin-bottom:14px}
 .dhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
 .dhead.gap{margin-top:14px}
 .none{margin:6px 0 0;font-size:13px;color:var(--fg-2)}
@@ -244,7 +247,14 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
   .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
   .shead:first-child,.row2{margin-top:16px}
 }
-@media (min-width:1700px){ #content:not([hidden]){grid-template-columns:440px minmax(0,1fr)} }
+@media (min-width:1500px){
+  .gutter{max-width:none;padding-left:32px;padding-right:32px}
+  #content:not([hidden]){grid-template-columns:440px minmax(0,1fr);gap:0 28px}
+}
+/* big monitors: scale everything up a little so the page fills the screen */
+@media (min-width:1800px){ body:not(.wall){zoom:1.15} }
+@media (min-width:2300px){ body:not(.wall){zoom:1.35} }
+@media (min-width:3000px){ body:not(.wall){zoom:1.8} }
 
 /* ---------- /wall: every account on one screen, nothing to tap ---------- */
 .wall .tabs,.wall .chart,.wall .ranges,.wall .row2,.wall .spark,.wall .details,.wall .chev,.wall .flags{display:none!important}
@@ -295,6 +305,7 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
         <div class="chg">
           <div class="chg-val num" id="chgVal"></div>
           <div class="chg-sub num" id="chgSub"></div>
+          <div class="chg-ex num" id="chgEx"></div>
         </div>
       </div>
       <div class="chart" id="chart"></div>
@@ -448,6 +459,9 @@ function mapAcct(x,idx,open){
   a.closedSum = (typeof x.closedSum==='number') ? x.closedSum : a.closed.reduce((s,t)=>s+t.pnl,0);
   a.closedN = (typeof x.closedCount==='number') ? x.closedCount : a.closed.length;
   a.mdd = x.dd || null;
+  a.lm = (typeof x.pnlLastMonth==='number') ? x.pnlLastMonth : null;
+  a.d90 = (typeof x.pnl90==='number') ? x.pnl90 : null;
+  a.ytd = (typeof x.pnlYear==='number') ? x.pnlYear : null;
   a.wk = (typeof x.pnlWeek==='number') ? x.pnlWeek : null;
   a.mo = (typeof x.pnlMonth==='number') ? x.pnlMonth : null;
   a.dd = (a.bal+a.credit)>0 ? Math.max(0,(a.bal+a.credit-a.equity)/(a.bal+a.credit)) : 0;
@@ -628,8 +642,14 @@ cardsEl.addEventListener('click',function(e){const top=e.target.closest('.card-t
 cardsEl.addEventListener('keydown',onKey(function(el){toggle(+el.closest('.card').dataset.i);},'.card-top'));
 sortEl.addEventListener('change',function(){sort=sortEl.value;applyView();});
 
+function longCell(label,v,bal){
+  if(v===null) return '<div><div class="label">'+label+'</div><div class="num">—</div></div>';
+  const r = retPct(v,bal);
+  return '<div><div class="label">'+label+'</div><div class="num '+cls(v)+'">'+money(v,{sign:true,dec:0})+(r===null?'':'<span class="pp">'+pct(r)+'</span>')+'</div></div>';
+}
 function detailsHTML(a){
-  let h = '<div class="dhead"><span class="label">Margin level</span><span class="num '+(a.connected && a.ml!==null && a.ml<300?'warn':'mut')+'">'+(a.ml===null?'—':nf0.format(a.ml)+'%')+'</span></div>'
+  let h = '<div class="mini mini-long">'+longCell('Last month',a.lm,a.bal)+longCell('Last 90 d',a.d90,a.bal)+longCell('This year',a.ytd,a.bal)+'<div></div></div>'
+    + '<div class="dhead"><span class="label">Margin level</span><span class="num '+(a.connected && a.ml!==null && a.ml<300?'warn':'mut')+'">'+(a.ml===null?'—':nf0.format(a.ml)+'%')+'</span></div>'
     + '<div class="dhead"><span class="label">Margin used</span><span class="num mut">'+(a.margin?money(a.margin):'—')+'</span></div>'
     + (a.mdd ? '<div class="dhead gap"><span class="label">Biggest drawdown · this week</span><span class="num '+(a.mdd.week.amt>0?'down':'mut')+'">'+(a.mdd.week.amt>0?MINUS+money(a.mdd.week.amt)+' · '+a.mdd.week.pct.toFixed(2)+'%':'None')+'</span></div>'
       + '<div class="dhead"><span class="label">Biggest drawdown · all time</span><span class="num '+(a.mdd.all.amt>0?'down':'mut')+'">'+(a.mdd.all.amt>0?MINUS+money(a.mdd.all.amt)+' · '+a.mdd.all.pct.toFixed(2)+'%':'None')+'</span></div>' : '')
@@ -889,17 +909,18 @@ function renderChart(){
   chartEl.innerHTML = '<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Equity over time">'
     + grid + '<path class="area-main" d="'+area+'"/><path class="ln-main" d="'+line+'"/>' + cross
     + '<circle class="end" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="4.5"/>' + xl + '</svg>';
-  const cv=$('chgVal'), cs=$('chgSub');
+  const cv=$('chgVal'), cs=$('chgSub'), cx2=$('chgEx');
   if(scrub===null){
     const flw = chartFlows(chartAgg,f);          // deposits/withdrawals are not profit or loss
     const ch = tot[N-1]-tot[f]-flw;
     cv.textContent = money(ch,{sign:true});
     cv.className = 'chg-val num '+cls(ch);
-    cs.textContent = (tot[f]?pct(ch/tot[f]*100):'')+(f===0?' · '+RANGES[range].label:'')+(Math.abs(flw)>=0.5?' · ex '+money(flw,{sign:true}):'');
+    cs.textContent = (tot[f]?pct(ch/tot[f]*100):'')+(f===0?' · '+RANGES[range].label:''); cx2.textContent = Math.abs(flw)>=0.5 ? 'net of '+money(flw,{sign:true,dec:0})+' in/out' : '';
   } else {
     cv.textContent = money(tot[li]);
     cv.className = 'chg-val num';
     cs.textContent = li===N-1 ? 'now' : fullLabel(timeAt(li));
+    cx2.textContent = '';
   }
 }
 function scrubAt(e){
