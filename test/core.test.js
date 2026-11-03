@@ -296,7 +296,7 @@ test('commission: seed history, live months recorded, rates and paid ticks persi
   let v = c.view();
   assert.strictEqual(v.months['2026-11'].Jason['Bot 1'] + v.months['2026-11'].Jason['Bot 2'], 150);
   assert.ok(Math.abs(v.months['2026-10'].Jason['Bot 2'] - (4118.31 + 665.96)) < 0.005 && v.months['2026-10'].Jason['Bot 1'] === 20);   // Jason + PU Prime from the tracker, plus Bot 1 live
-  assert.strictEqual(v.months['2026-11'].Andy['Bot 1'], 5); assert.strictEqual(v.months['2026-11'].Andy.Gold, 10); assert.deepStrictEqual(v.bots, ['Bot 1', 'Bot 2', 'Gold']); assert.strictEqual(v.rates.Andy, 0.15); assert.ok(!v.months['2026-11']['Andy V']); assert.strictEqual(v.capital.Jason.reduce((s, x) => s + x[1], 0), 50000);
+  assert.strictEqual(v.months['2026-11'].Andy['Bot 1'], 5); assert.strictEqual(v.months['2026-11'].Andy.Gold, 10); assert.deepStrictEqual(v.bots, ['Bot 1', 'Bot 2', 'Gold']); assert.strictEqual(v.rates.Andy, 0.15); assert.ok(!v.months['2026-11']['Andy V']); assert.strictEqual(v.capital['Bot 2'].Jason.reduce((s, x) => s + x[1], 0), 50000);
   assert.ok(!v.months['2026-11'].Neymar && !v.months['2026-11'].Demo);
   assert.ok(Math.abs(v.months['2026-07'].Jason['Bot 2'] - (1431.99 - 14907.21 - 188.95)) < 0.005);   // Vantage wipe-out (a real loss) and PU Prime count as Jason's
   assert.strictEqual(v.months['2025-11']['OG Star Man']['Bot 2'], 87.09); assert.strictEqual(v.rates['OG Star Man'], 1); assert.deepStrictEqual(v.selfPaid, ['OG Star Man']);
@@ -305,6 +305,17 @@ test('commission: seed history, live months recorded, rates and paid ticks persi
   v = c.view();
   assert.strictEqual(v.rates.Sparki, 0.1); assert.strictEqual(v.rates.Jason, 0.25);   // rates are fixed: edits are ignored
   assert.strictEqual(v.paid['2026-10|Jason'], 500); assert.strictEqual(v.paid.bad, undefined);
+  c.record([{ id: 's:1', group: 'b1', name: 'Nigel', pnlMonth: 1, monthly: { '2025-03': 9, '2025-04': 100, '2026-09': -20, '2026-11': 77 }, deposits: [['2025-04-02', 5000]] },
+    { id: 's:2', group: 'b2', name: 'Sparki', pnlMonth: 2, monthly: { '2025-10': 3, '2026-09': 8 }, deposits: [['2026-03-01', 900]] }], now);
+  v = c.view();
+  assert.strictEqual(v.months['2025-04'].Nigel['Bot 1'], 100); assert.ok(!v.months['2025-03']);   // Bot 1 starts Apr 2025
+  assert.strictEqual(v.months['2026-09'].Nigel['Bot 1'], -20); assert.strictEqual(v.months['2026-11'].Nigel['Bot 1'], 1);   // this month stays the live figure
+  assert.ok(!v.months['2025-10'] || !v.months['2025-10'].Sparki);   // Bot 2 starts Nov 2025
+  assert.strictEqual(v.months['2026-09'].Sparki['Bot 2'], 8);   // not in the tracker, so the live history is used
+  assert.deepStrictEqual(v.capital['Bot 1'].Nigel, [['2025-04-02', 5000]]); assert.deepStrictEqual(v.capital['Bot 2'].Sparki, [['2026-03-01', 900]]);
+  c.record([{ id: 's:3', group: 'b1', name: 'Jason', pnlMonth: 0, deposits: [['2025-03-01', 7000], ['2025-09-01', 1500]] }], now);
+  v = c.view();
+  assert.deepStrictEqual(v.capital['Bot 1'].Jason, [['2025-04-01', 20000], ['2025-09-01', 1500]]);   // fixed £20,000 start replaces earlier deposits
   const again = new Commission(cfg).view();
   assert.strictEqual(again.rates.Jason, 0.25); assert.strictEqual(again.payments.Andy.length, 4); assert.strictEqual(again.months['2026-11'].Jason['Bot 2'], 100);
 });
