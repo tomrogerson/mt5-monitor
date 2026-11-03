@@ -1,0 +1,154 @@
+{
+ "note": "Monthly profit per person from Star Bot Tracker (Bot 2), Oct 2025 to Oct 2026. Vantage Jul 2026 set to 0 (a withdrawal, not a loss).",
+ "rates": {
+  "Jason": 0.25,
+  "Vantage": 0.25,
+  "Nigel": 0.1,
+  "Andy V": 0.15,
+  "Jack": 0.1,
+  "Sam": 0.1,
+  "Lee": 0.1,
+  "Ben": 0.1,
+  "PU Prime": 0.25,
+  "Tony": 0.1,
+  "G Bill": 0,
+  "Tom": 0,
+  "Tauro Markets": 0
+ },
+ "months": {
+  "2025-10": {},
+  "2025-11": {
+   "Tom": 80.2,
+   "Jason": 185.21
+  },
+  "2025-12": {
+   "Tom": 774.23,
+   "Jason": 2025.75,
+   "Vantage": 340.43
+  },
+  "2026-01": {
+   "Tom": 573.47,
+   "Jason": 2326.65,
+   "Vantage": 877.02,
+   "Nigel": 2382.99,
+   "Andy V": 271.74,
+   "G Bill": 0
+  },
+  "2026-02": {
+   "Tom": 281.16,
+   "Jason": 2803.32,
+   "Vantage": 848.33,
+   "Nigel": 1432.84,
+   "Andy V": 1187.58,
+   "G Bill": 307.48,
+   "Jack": 1159.59
+  },
+  "2026-03": {
+   "Tom": 437.14,
+   "Jason": 3296.33,
+   "Vantage": 1025.39,
+   "Nigel": 1488.85,
+   "Andy V": 1902.68,
+   "G Bill": 380.23,
+   "Jack": 4935.86,
+   "Lee": 193.59,
+   "Tauro Markets": 132.38
+  },
+  "2026-04": {
+   "Tom": 358.3,
+   "Jason": 2678.81,
+   "Vantage": 859.55,
+   "Nigel": 1144.06,
+   "Andy V": 1413.16,
+   "G Bill": 301.23,
+   "Jack": 4104.16,
+   "Lee": 207.76,
+   "Tauro Markets": 396.36,
+   "Sam": 666.12,
+   "Ben": 0
+  },
+  "2026-05": {
+   "Tom": -1119.65,
+   "Jason": 1359.93,
+   "Vantage": 762.45,
+   "Nigel": 651.25,
+   "Andy V": 701.54,
+   "G Bill": 176.79,
+   "Jack": 837.32,
+   "Lee": 142.43,
+   "Tauro Markets": -2528.74,
+   "Sam": 593.27,
+   "Ben": 476.31
+  },
+  "2026-06": {
+   "Tom": -115.83,
+   "Jason": 6322.92,
+   "Vantage": 2194.04,
+   "Nigel": 2816.03,
+   "Andy V": 3203.39,
+   "G Bill": 762.58,
+   "Jack": 0,
+   "Lee": 476.69,
+   "Tauro Markets": 0,
+   "Sam": 2571.77,
+   "Ben": 1842.64
+  },
+  "2026-07": {
+   "Tom": -547.97,
+   "Jason": 1431.99,
+   "Vantage": 0,
+   "Nigel": 1193.86,
+   "Andy V": 1383.24,
+   "G Bill": -661.61,
+   "Jack": 0,
+   "Lee": -452.97,
+   "Tauro Markets": 0,
+   "Sam": 1411,
+   "Ben": 984.68,
+   "PU Prime": -188.95
+  },
+  "2026-08": {
+   "Tom": 50.01,
+   "Jason": 3168.9,
+   "Vantage": 0,
+   "Nigel": 1782.92,
+   "Andy V": 2116.69,
+   "G Bill": 511.7,
+   "Jack": 0,
+   "Lee": 284.27,
+   "Tauro Markets": 0,
+   "Sam": 1962.5,
+   "Ben": 1486.36,
+   "PU Prime": 566.1
+  },
+  "2026-09": {
+   "Tom": 41.19,
+   "Jason": -212.07,
+   "Vantage": 0,
+   "Nigel": 11.44,
+   "Andy V": -151.54,
+   "G Bill": 23.41,
+   "Jack": 0,
+   "Lee": 118.47,
+   "Tauro Markets": 0,
+   "Sam": -138.03,
+   "Ben": 483.27,
+   "PU Prime": -104.89
+  },
+  "2026-10": {
+   "Tom": 696.32,
+   "Jason": 4118.31,
+   "Vantage": 0,
+   "Nigel": 5589.57,
+   "Andy V": 6042.2,
+   "G Bill": 1734.85,
+   "Jack": 0,
+   "Lee": 1858.39,
+   "Tauro Markets": 0,
+   "Sam": 6633.51,
+   "Ben": 5056.71,
+   "PU Prime": 665.96,
+   "Tony": 2903.66
+  }
+ }
+}
