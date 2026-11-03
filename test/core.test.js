@@ -322,6 +322,9 @@ test('commission: seed history, live months recorded, rates and paid ticks persi
   v = c.view();
   assert.deepStrictEqual(v.capital['Bot 1'].Zed, [['2025-05-01', 20000], ['2025-12-31', 20000]]);   // total in is every deposit
   assert.deepStrictEqual(v.withdrawn['Bot 1'].Zed, [['2025-12-31', 20000], ['2026-02-01', 500]]);   // total out is every withdrawal
+  c.record([{ id: 'x:2', group: 'b2', name: 'Andy V', deposits: [['2025-06-01', 9000], ['2026-01-16', 30922.84]], withdrawals: [['2025-06-02', 9000], ['2026-04-03', 100]] }], now);
+  v = c.view();
+  assert.deepStrictEqual(v.capital['Bot 2'].Andy, [['2026-01-16', 30922.84]]); assert.deepStrictEqual(v.withdrawn['Bot 2'].Andy, [['2026-04-03', 100]]);   // MT5 only (not the tracker's £25,000), nothing before Nov 2025
   const again = new Commission(cfg).view();
   assert.strictEqual(again.rates.Jason, 0.25); assert.strictEqual(again.payments.Andy.length, 4); assert.strictEqual(again.months['2026-11'].Jason['Bot 2'], 130);
 });
