@@ -318,6 +318,10 @@ test('commission: seed history, live months recorded, rates and paid ticks persi
   v = c.view();
   assert.deepStrictEqual(v.capital['Bot 1'].Jason, [['2025-04-01', 1896.48], ['2025-04-11', 18103.52], ['2025-09-01', 1500]]);   // fixed start + transfer in, live copies of them dropped
   assert.ok(Math.abs(v.withdrawn['Bot 1'].Jason.reduce((t, x) => t + x[1], 0) - (24118.12 + 300)) < 0.005);   // seeded withdrawals plus only the later live one
+  c.record([{ id: 'x:1', group: 'b1', name: 'Zed', deposits: [['2025-05-01', 20000], ['2025-12-31', 20000]], withdrawals: [['2025-12-31', 20000], ['2026-02-01', 500]] }], now);
+  v = c.view();
+  assert.deepStrictEqual(v.capital['Bot 1'].Zed, [['2025-05-01', 20000], ['2025-12-31', 20000]]);   // total in is every deposit
+  assert.deepStrictEqual(v.withdrawn['Bot 1'].Zed, [['2025-12-31', 20000], ['2026-02-01', 500]]);   // total out is every withdrawal
   const again = new Commission(cfg).view();
   assert.strictEqual(again.rates.Jason, 0.25); assert.strictEqual(again.payments.Andy.length, 4); assert.strictEqual(again.months['2026-11'].Jason['Bot 2'], 130);
 });
