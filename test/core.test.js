@@ -314,9 +314,10 @@ test('commission: seed history, live months recorded, rates and paid ticks persi
   assert.ok(!v.months['2025-10'] || !v.months['2025-10'].Sparki);   // Bot 2 starts Nov 2025
   assert.strictEqual(v.months['2026-09'].Sparki['Bot 2'], 8);   // not in the tracker, so the live history is used
   assert.deepStrictEqual(v.capital['Bot 1'].Nigel, [['2025-04-02', 5000]]); assert.deepStrictEqual(v.capital['Bot 2'].Sparki, [['2026-03-01', 900]]);
-  c.record([{ id: 's:3', group: 'b1', name: 'Jason', pnlMonth: 0, deposits: [['2025-03-01', 7000], ['2025-09-01', 1500]] }], now);
+  c.record([{ id: 's:3', group: 'b1', name: 'Jason', pnlMonth: 0, deposits: [['2025-03-01', 7000], ['2025-04-11', 18103.52], ['2025-09-01', 1500]], withdrawals: [['2026-07-22', 4995.88], ['2026-10-01', 300]] }], now);
   v = c.view();
-  assert.deepStrictEqual(v.capital['Bot 1'].Jason, [['2025-04-01', 1896.48], ['2025-09-01', 1500]]);   // fixed £1,896.48 start replaces earlier deposits
+  assert.deepStrictEqual(v.capital['Bot 1'].Jason, [['2025-04-01', 1896.48], ['2025-04-11', 18103.52], ['2025-09-01', 1500]]);   // fixed start + transfer in, live copies of them dropped
+  assert.ok(Math.abs(v.withdrawn['Bot 1'].Jason.reduce((t, x) => t + x[1], 0) - (24118.12 + 300)) < 0.005);   // seeded withdrawals plus only the later live one
   const again = new Commission(cfg).view();
   assert.strictEqual(again.rates.Jason, 0.25); assert.strictEqual(again.payments.Andy.length, 4); assert.strictEqual(again.months['2026-11'].Jason['Bot 2'], 130);
 });
