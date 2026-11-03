@@ -290,12 +290,13 @@ test('commission: seed history, live months recorded, rates and paid ticks persi
     { group: 'b2', name: 'Jason', pnlMonth: 100, pnlLastMonth: 999 },   // Oct is in the tracker, so the live Bot 2 figure is ignored
     { group: 'b1', name: 'Jason', pnlMonth: 50, pnlLastMonth: 20 },     // Bot 1 is not in the tracker, so it adds to Oct
     { group: 'b1', name: 'Andy V', pnlMonth: 5 },   // same person as Andy
+    { group: 'g', name: 'Andy V TT Gold', pnlMonth: 10 },   // Gold tab account, still Andy's
     { group: 'g', name: 'Neymar', pnlMonth: 5 }, { group: 'b2', name: 'Demo', demo: true, pnlMonth: 7 }
   ], now);
   let v = c.view();
   assert.strictEqual(v.months['2026-11'].Jason, 150);
   assert.strictEqual(v.months['2026-10'].Jason, 4118.31 + 20);
-  assert.strictEqual(v.months['2026-11'].Andy, 5); assert.strictEqual(v.rates.Andy, 0.15); assert.ok(!v.months['2026-11']['Andy V']);
+  assert.strictEqual(v.months['2026-11'].Andy, 15); assert.strictEqual(v.rates.Andy, 0.15); assert.ok(!v.months['2026-11']['Andy V']);
   assert.ok(!v.months['2026-11'].Neymar && !v.months['2026-11'].Demo);
   assert.strictEqual(v.months['2026-07'].Vantage, -14907.21);   // the account was wiped out: a real loss
   assert.strictEqual(v.months['2025-11']['OG Star Man'], 87.09); assert.strictEqual(v.rates['OG Star Man'], 1); assert.deepStrictEqual(v.selfPaid, ['OG Star Man']);
@@ -305,5 +306,5 @@ test('commission: seed history, live months recorded, rates and paid ticks persi
   assert.strictEqual(v.rates.Sparki, 0.1); assert.strictEqual(v.rates.Jason, 0.25);   // rates are fixed: edits are ignored
   assert.strictEqual(v.paid['2026-10|Jason'], 500); assert.strictEqual(v.paid.bad, undefined);
   const again = new Commission(cfg).view();
-  assert.strictEqual(again.rates.Jason, 0.25); assert.strictEqual(again.months['2026-11'].Jason, 150);
+  assert.strictEqual(again.rates.Jason, 0.25); assert.strictEqual(again.payments.Andy.length, 4); assert.strictEqual(again.months['2026-11'].Jason, 150);
 });
