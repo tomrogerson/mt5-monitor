@@ -300,10 +300,10 @@ test('commission: seed history, live months recorded, rates and paid ticks persi
   assert.strictEqual(v.months['2026-07'].Vantage, -14907.21);   // the account was wiped out: a real loss
   assert.strictEqual(v.months['2025-11']['OG Star Man'], 87.09); assert.strictEqual(v.rates['OG Star Man'], 1); assert.deepStrictEqual(v.selfPaid, ['OG Star Man']);
   assert.strictEqual(v.rates.Jason, 0.25);
-  c.update({ rates: { Sparki: 0.1, Jason: 2 }, paid: { '2026-10|Jason': 500, 'bad': 1 } });
+  c.update({ rates: { Jason: 0.5 }, paid: { '2026-10|Jason': 500, 'bad': 1 } });
   v = c.view();
-  assert.strictEqual(v.rates.Sparki, 0.1); assert.strictEqual(v.rates.Jason, 0.25);   // 2 (200%) rejected
+  assert.strictEqual(v.rates.Sparki, 0.1); assert.strictEqual(v.rates.Jason, 0.25);   // rates are fixed: edits are ignored
   assert.strictEqual(v.paid['2026-10|Jason'], 500); assert.strictEqual(v.paid.bad, undefined);
   const again = new Commission(cfg).view();
-  assert.strictEqual(again.rates.Sparki, 0.1); assert.strictEqual(again.months['2026-11'].Jason, 150);
+  assert.strictEqual(again.rates.Jason, 0.25); assert.strictEqual(again.months['2026-11'].Jason, 150);
 });
