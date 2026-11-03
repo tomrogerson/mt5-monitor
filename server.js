@@ -55,6 +55,7 @@ function createApp(cfg, provider, history) {
     const wk = weekStartMs();
     const accounts = snap.accounts.map(a => Object.assign({}, a, {
       flows: undefined,   // deposits/withdrawals go with /api/series, not the live stream
+      monthly: undefined, deposits: undefined,   // commission-tab history is served by /api/commission only
       group: groupFor(a.name, cfg.groups, a.group),
       dd: history.drawdown(a.id, wk),
       // the screen only lists the newest few closed trades, so send those plus the totals
