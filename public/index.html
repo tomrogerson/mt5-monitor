@@ -272,6 +272,29 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .wall .mini{margin-top:8px;padding-top:8px}
 .wall .sub{font-size:11px;margin-top:1px}
 .wall .card.s-warn,.wall .card.s-down,.wall .card.s-off{border-width:2px}
+
+/* ---------- commission tab ---------- */
+.cm-ch{margin:16px 0 6px}
+.cm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:10px;align-items:start}
+.cm{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
+.cm.unset{border-color:var(--warn)}
+.cm-top{display:block;padding:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cm-top .nrow strong{font-size:16px}
+.cm-rate{font:500 12px var(--font-num);color:var(--fg-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+.cm-owed{margin-left:auto;font:600 15px var(--font-num)}
+.cm-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
+.cm-grid .v{font-size:14px;font-weight:500;margin-top:2px}
+.cm-det{padding:0 14px 14px;border-top:1px solid var(--line)}
+.cm-edit{display:flex;align-items:center;gap:8px;margin:12px 0 6px;flex-wrap:wrap}
+.cm-edit input{width:76px;font:500 16px var(--font-num);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+.cm-btn{font:600 12px var(--font-body);color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);border-radius:8px;padding:5px 10px;cursor:pointer}
+.cm-btn.off{color:var(--fg-2);background:transparent;border-color:var(--line)}
+.cm-mrow{display:grid;grid-template-columns:62px minmax(0,1fr) minmax(0,1fr) 78px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+.cm-mrow:last-child{border-bottom:0}
+.cm-mrow.h{font-size:11px;color:var(--fg-3);letter-spacing:.06em;text-transform:uppercase}
+.cm-mrow .r{text-align:right}
+.cm-foot{margin:18px 2px 8px;font-size:12px;color:var(--fg-3);line-height:1.5}
+.cm-empty{font-size:13px;color:var(--fg-3);padding:4px 2px}
 </style>
 </head>
 <body>
@@ -296,7 +319,7 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
   <div class="waiting" id="waiting"><strong>Connecting to your accounts</strong><span id="waitText">This can take a minute or two after the server starts.</span></div>
 
   <div id="content" hidden>
-    <section class="panel" aria-label="Summary">
+    <section class="panel" id="sumPanel" aria-label="Summary">
       <div class="sum-head">
         <div>
           <div class="label" id="totalLabel">Total equity</div>
@@ -343,6 +366,21 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
         </label>
       </div>
       <div class="cards" id="cards"></div>
+    </div>
+    <div id="viewComm" hidden>
+      <section class="panel" aria-label="Commission summary">
+        <div class="label">Owed to you</div>
+        <div class="total num" id="cmOwed">-</div>
+        <div class="chg-sub num" id="cmOwedSub"></div>
+        <div class="stats" id="cmStats"></div>
+        <div class="label cm-ch">Commission by month</div>
+        <div id="cmChart"></div>
+      </section>
+      <div class="shead"><span class="label">People who pay you</span><span class="num" id="cmCount"></span></div>
+      <div class="cm-list" id="cmList"></div>
+      <div class="shead"><span class="label">Older accounts</span><span class="num" id="cmOldCount"></span></div>
+      <div class="cm-list" id="cmOld"></div>
+      <div class="cm-foot">Commission is the rate times each month's closed profit. A losing month is carried forward and netted off the next month before commission is taken. Months to October 2026 come from your Star Bot Tracker; later months are recorded from the live accounts.</div>
     </div>
   </div>
 </main>
@@ -558,7 +596,7 @@ function cardHTML(a,i){
   + '</article>';
 }
 function buildDOM(){
-  tabsEl.innerHTML = [{key:'overview',label:'Overview'}].concat(groups.map(g=>({key:g.key,label:g.label}))).map(t =>
+  tabsEl.innerHTML = [{key:'overview',label:'Overview'}].concat(groups.map(g=>({key:g.key,label:g.label})), WALL?[]:[{key:'commission',label:'Commission'}]).map(t =>
     '<button class="tab" type="button" role="tab" data-t="'+esc(t.key)+'" aria-selected="false">'+esc(t.label)+'<span class="tdot" hidden></span></button>'
   ).join('');
   botsEl.innerHTML = groups.map(botHTML).join('');
@@ -606,10 +644,14 @@ function applyView(){
 function setTab(key,opt){
   tab = key;
   scrub = null;
-  $('viewOverview').hidden = WALL || key!=='overview';
-  $('viewBot').hidden = !WALL && key==='overview';
+  const cm = key==='commission';
+  $('sumPanel').hidden = cm;
+  $('viewComm').hidden = !cm;
+  $('viewOverview').hidden = cm || WALL || key!=='overview';
+  $('viewBot').hidden = cm || (!WALL && key==='overview');
   tabsEl.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected',String(t.dataset.t===key)));
-  if(WALL || key!=='overview') applyView();
+  if(cm) loadComm();
+  else if(WALL || key!=='overview') applyView();
   paintAll();
   if(!(opt && opt.keepScroll)) window.scrollTo(0,0);
 }
@@ -958,6 +1000,147 @@ function paintAll(){
   renderChart();
 }
 
+
+/* ---------- commission tab ---------- */
+let CM = null, cmOpen = {}, cmAt = 0;
+const CMON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function mLabel(k){const p=k.split('-');return CMON[+p[1]-1]+' '+p[0].slice(2);}
+function loadComm(force){
+  if(!force && Date.now()-cmAt<20000 && CM){ paintComm(); return; }
+  cmAt = Date.now();
+  fetch('/api/commission',{credentials:'same-origin',cache:'no-store'}).then(r => r.ok ? r.json() : null).then(j => { if(j){ CM=j; paintComm(); } }).catch(()=>{});
+}
+function postComm(body){
+  return fetch('/api/commission',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(r => r.ok ? r.json() : null).then(j => { if(j){ CM=j; cmAt=Date.now(); paintComm(true); } });
+}
+function commCalc(){
+  const keys = Object.keys(CM.months).sort();
+  const people = {};
+  Object.keys(CM.rates).concat(CM.active).forEach(n => { people[n] = people[n] || null; });
+  keys.forEach(k => Object.keys(CM.months[k]).forEach(n => { people[n] = null; }));
+  const out = [];
+  Object.keys(people).forEach(function(n){
+    const rate = (typeof CM.rates[n]==='number') ? CM.rates[n] : null;
+    let carry = 0; const rows = [];
+    keys.forEach(function(k){
+      const has = typeof CM.months[k][n]==='number';
+      if(!has) return;
+      const profit = CM.months[k][n];
+      let comm = 0;
+      if(rate>0){ const net = carry+profit; if(net>0){ comm = net*rate; carry = 0; } else { carry = net; } }
+      const pd = CM.paid[k+'|'+n] || 0;
+      rows.push({k:k,profit:profit,comm:comm,paid:pd,owed:Math.max(0,comm-pd),cur:k===CM.now});
+    });
+    const yr = CM.now.slice(0,4);
+    const sum = (f,fn) => rows.filter(f).reduce((t,r) => t+fn(r),0);
+    out.push({name:n,rate:rate,rows:rows,carry:carry,active:CM.active.indexOf(n)>=0,
+      cur:sum(r=>r.cur,r=>r.comm),
+      last:sum(r=>r.k===prevMonth(CM.now),r=>r.comm),
+      ytd:sum(r=>r.k.slice(0,4)===yr,r=>r.comm),
+      all:sum(()=>true,r=>r.comm),
+      paidAll:sum(()=>true,r=>Math.min(r.paid,r.comm)),
+      owed:sum(r=>!r.cur,r=>r.owed)});
+  });
+  return out;
+}
+function prevMonth(k){const p=k.split('-').map(Number);return p[1]===1?(p[0]-1)+'-12':p[0]+'-'+pad2(p[1]-1);}
+function commChart(monthTot,keys,now){
+  const ks = keys.slice(-12); if(!ks.length) return '';
+  const mx = Math.max.apply(null,ks.map(k=>monthTot[k]||0).concat([1]));
+  const W=600,H=150,bw=W/ks.length;
+  let h='<svg viewBox="0 0 '+W+' '+(H+22)+'" width="100%" role="img" aria-label="Commission by month">';
+  ks.forEach(function(k,i){
+    const v = monthTot[k]||0, bh = Math.max(v>0?2:0,(v/mx)*(H-18)), x=i*bw+bw*.18, w=bw*.64;
+    h+='<rect x="'+x.toFixed(1)+'" y="'+(H-bh).toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="3" fill="var(--accent)" opacity="'+(k===now?.45:.9)+'"/>';
+    if(v>0) h+='<text x="'+(x+w/2).toFixed(1)+'" y="'+(H-bh-4).toFixed(1)+'" text-anchor="middle" font-size="11" fill="var(--fg-2)">'+(v>=1000?(v/1000).toFixed(1)+'k':Math.round(v))+'</text>';
+    h+='<text x="'+(x+w/2).toFixed(1)+'" y="'+(H+15)+'" text-anchor="middle" font-size="11" fill="var(--fg-3)">'+CMON[+k.slice(5)-1]+'</text>';
+  });
+  return h+'</svg>';
+}
+function personHTML(p,i){
+  const open = !!cmOpen[p.name];
+  const unset = p.rate===null && p.active;
+  let h = '<div class="cm'+(unset?' unset':'')+'" data-n="'+esc(p.name)+'"><div class="cm-top" role="button" tabindex="0" aria-expanded="'+open+'">'
+    + '<div class="nrow"><strong class="aname">'+esc(p.name)+'</strong>'
+    + '<span class="cm-rate">'+(p.rate===null?'set rate':(Math.round(p.rate*1000)/10)+'%')+'</span>'
+    + '<span class="cm-owed '+(p.owed>0.005?'up':'flat')+'">'+(p.owed>0.005?money(p.owed)+' owed':'paid up')+'</span><span class="chev'+'" aria-hidden="true"></span></div>'
+    + '<div class="cm-grid"><div><div class="label">This month</div><div class="v num">'+money(p.cur)+'</div></div>'
+    + '<div><div class="label">Last month</div><div class="v num">'+money(p.last)+'</div></div>'
+    + '<div><div class="label">This year</div><div class="v num">'+money(p.ytd)+'</div></div>'
+    + '<div><div class="label">All time</div><div class="v num">'+money(p.all)+'</div></div></div></div>';
+  if(open){
+    h += '<div class="cm-det"><div class="cm-edit"><label class="label" for="rt-'+i+'">Rate %</label>'
+      + '<input id="rt-'+i+'" class="cm-rin" inputmode="decimal" value="'+(p.rate===null?'':Math.round(p.rate*1000)/10)+'" placeholder="e.g. 10">'
+      + '<button class="cm-btn cm-saverate" type="button">Save</button>'
+      + (p.owed>0.005?'<button class="cm-btn cm-allpaid" type="button">Mark all paid to date</button>':'')
+      + '</div>';
+    if(p.carry<-0.005) h += '<div class="cm-empty">Carrying forward a loss of '+money(-p.carry)+'. No commission until it is made back.</div>';
+    h += '<div class="cm-mrow h"><span>Month</span><span class="r">Profit</span><span class="r">Commission</span><span class="r">Paid</span></div>';
+    p.rows.slice().reverse().forEach(function(r){
+      const paid = r.comm>0.005 && r.paid>=r.comm-0.005;
+      h += '<div class="cm-mrow"><span>'+mLabel(r.k)+(r.cur?'*':'')+'</span><span class="r num '+cls(r.profit)+'">'+money(r.profit)+'</span><span class="r num">'+(r.comm>0.005?money(r.comm):'—')+'</span>'
+        + '<span class="r">'+(r.comm>0.005?'<button type="button" class="cm-btn cm-pay'+(paid?'':' off')+'" data-k="'+r.k+'" data-c="'+r.comm.toFixed(2)+'">'+(paid?'Paid':'Unpaid')+'</button>':'')+'</span></div>';
+    });
+    h += '<div class="cm-empty">* month so far, not counted as owed until it ends</div></div>';
+  }
+  return h+'</div>';
+}
+function paintComm(keepFocus){
+  if(!CM || tab!=='commission') return;
+  if(!keepFocus && document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('cm-rin')) return;
+  const ppl = commCalc();
+  const payers = ppl.filter(p => p.active && p.name!=='Tom').sort((a,b) => (b.rate===null)-(a.rate===null) || b.all-a.all);
+  const old = ppl.filter(p => !p.active && p.name!=='Tom' && p.rows.length).sort((a,b) => b.all-a.all);
+  const earn = ppl.filter(p => p.rate>0);
+  const monthTot = {};
+  earn.forEach(p => p.rows.forEach(r => { monthTot[r.k] = (monthTot[r.k]||0)+r.comm; }));
+  const keys = Object.keys(monthTot).sort();
+  const done = keys.filter(k => k!==CM.now);
+  const owed = earn.reduce((t,p) => t+p.owed,0), paidAll = earn.reduce((t,p) => t+p.paidAll,0), all = earn.reduce((t,p) => t+p.all,0);
+  const yr = CM.now.slice(0,4), ytd = keys.filter(k => k.slice(0,4)===yr).reduce((t,k) => t+monthTot[k],0);
+  const last6 = done.slice(-6), avg6 = last6.length ? last6.reduce((t,k) => t+monthTot[k],0)/last6.length : 0;
+  const avgAll = done.length ? done.reduce((t,k) => t+monthTot[k],0)/done.length : 0;
+  let best = null; done.forEach(k => { if(best===null || monthTot[k]>monthTot[best]) best = k; });
+  $('cmOwed').textContent = money(owed);
+  $('cmOwedSub').textContent = 'of '+money(all)+' earned · '+money(paidAll)+' received';
+  const st = (l,v) => '<div class="stat"><div class="label">'+l+'</div><div class="v num">'+v+'</div></div>';
+  $('cmStats').innerHTML = st('This month so far',money(monthTot[CM.now]||0)) + st('Last month',money(monthTot[prevMonth(CM.now)]||0))
+    + st('Average / month, last '+(last6.length||6),money(avg6)) + st('Average / month, all time',money(avgAll))
+    + st('This year',money(ytd)) + st('Best month',best?money(monthTot[best])+' · '+mLabel(best):'—');
+  $('cmChart').innerHTML = commChart(monthTot,keys,CM.now);
+  $('cmCount').textContent = payers.length+' accounts';
+  $('cmList').innerHTML = payers.map(personHTML).join('') || '<div class="cm-empty">No accounts yet.</div>';
+  $('cmOldCount').textContent = old.length+' accounts';
+  $('cmOld').innerHTML = old.map(personHTML).join('') || '<div class="cm-empty">None.</div>';
+}
+(function(){
+  const root = $('viewComm');
+  root.addEventListener('click',function(e){
+    const card = e.target.closest('.cm'); if(!card) return;
+    const n = card.dataset.n;
+    const pay = e.target.closest('.cm-pay');
+    if(pay){ const k = pay.dataset.k, c = +pay.dataset.c, key = k+'|'+n; const on = (CM.paid[key]||0) >= c-0.005; const b = {}; b[key] = on ? null : c; postComm({paid:b}); return; }
+    if(e.target.closest('.cm-saverate')){
+      const v = card.querySelector('.cm-rin').value.trim().replace('%','');
+      const o = {}; o[n] = v==='' ? null : Math.min(100,Math.max(0,parseFloat(v)))/100;
+      if(v!=='' && !isFinite(o[n])) return;
+      postComm({rates:o}); return;
+    }
+    if(e.target.closest('.cm-allpaid')){
+      const p = commCalc().filter(x => x.name===n)[0], b = {};
+      p.rows.forEach(r => { if(!r.cur && r.comm>0.005) b[r.k+'|'+n] = Math.round(r.comm*100)/100; });
+      postComm({paid:b}); return;
+    }
+    if(e.target.closest('.cm-det') && !e.target.closest('.cm-top')) return;
+    if(e.target.closest('.cm-top')){ cmOpen[n] = !cmOpen[n]; paintComm(true); }
+  });
+  root.addEventListener('keydown',function(e){
+    if((e.key==='Enter'||e.key===' ') && e.target.classList && e.target.classList.contains('cm-top')){ e.preventDefault(); e.target.click(); }
+  });
+  setInterval(function(){ if(!document.hidden && tab==='commission') loadComm(true); },60000);
+})();
+
 /* ---------- data from the server ---------- */
 function applyState(s){
   lastState = s;
@@ -972,11 +1155,13 @@ function applyState(s){
     structKey = key;
     buildDOM();
     if(hashTab && GROUP[hashTab]){ tab = hashTab; hashTab = null; }
-    if(tab!=='overview' && !GROUP[tab]) tab = 'overview';
-    $('viewOverview').hidden = WALL || tab!=='overview';
-    $('viewBot').hidden = !WALL && tab==='overview';
+    if(tab!=='overview' && tab!=='commission' && !GROUP[tab]) tab = 'overview';
+    const cm = tab==='commission';
+    $('sumPanel').hidden = cm; $('viewComm').hidden = !cm;
+    $('viewOverview').hidden = cm || WALL || tab!=='overview';
+    $('viewBot').hidden = cm || (!WALL && tab==='overview');
     tabsEl.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected',String(t.dataset.t===tab)));
-    if(WALL || tab!=='overview') applyView();
+    if(!cm && (WALL || tab!=='overview')) applyView();
   }
   paintAll();
 }
