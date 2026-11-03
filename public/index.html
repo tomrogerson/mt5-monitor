@@ -1085,15 +1085,20 @@ function commCalc(){
   return out;
 }
 function prevMonth(k){const p=k.split('-').map(Number);return p[1]===1?(p[0]-1)+'-12':p[0]+'-'+pad2(p[1]-1);}
+function rowFor(p,sel){
+  if(sel!=='all') return p.rows.filter(r => r.k===sel)[0];
+  if(!p.rows.length) return undefined;
+  return {k:'all',profit:p.rows.reduce((t,r) => t+r.profit,0),comm:p.rows.reduce((t,r) => t+r.comm,0)};
+}
 function dLabel(d){const p=d.split('-');return +p[2]+' '+CMON[+p[1]-1]+' '+p[0].slice(2);}
 function personHTML(p,i,sel){
   const open = !!cmOpen[p.name];
   const own = CM.selfPaid.indexOf(p.name)>=0;
-  const r0 = p.rows.filter(r => r.k===sel)[0];
+  const r0 = rowFor(p,sel);
   const all = cmBot==='all';
-  const owedTxt = !all ? '—' : own ? 'your account' : (p.owed>0.005 ? money(p.owed) : (p.owed<-0.005 ? money(-p.owed)+' credit' : 'paid up'));
+  const owedTxt = !all ? '—' : own ? (p.name==='Tom'?'my accounts':'your account') : (p.owed>0.005 ? money(p.owed) : (p.owed<-0.005 ? money(-p.owed)+' credit' : 'paid up'));
   let h = '<div class="cm" data-n="'+esc(p.name)+'"><div class="cm-top" role="button" tabindex="0" aria-expanded="'+open+'">'
-    + '<div class="cm-id"><strong class="aname">'+esc(p.name)+'</strong><span class="cm-rate">'+(p.rate===null?'no rate':(Math.round(p.rate*1000)/10)+'%')+'</span>'+(p.active||own?'':'<span class="cm-rate">closed</span>')+'</div>'
+    + '<div class="cm-id"><strong class="aname">'+esc(p.name)+'</strong><span class="cm-rate">'+(own&&p.rate===0?'mine':p.rate===null?'no rate':(Math.round(p.rate*1000)/10)+'%')+'</span>'+(p.active||own?'':'<span class="cm-rate">closed</span>')+'</div>'
     + '<div class="cm-grid"><div><div class="label">Profit</div><div class="v num '+(r0?cls(r0.profit):'')+'">'+(r0?money(r0.profit):'—')+'</div></div>'
     + '<div><div class="label">Commission</div><div class="v num '+(r0?cls(r0.comm):'')+'">'+(r0&&Math.abs(r0.comm)>0.005?money(r0.comm):'—')+'</div></div>'
     + '<div><div class="label">Paid to date</div><div class="v num">'+(all&&p.paid>0?money(p.paid):'—')+'</div></div>'
@@ -1161,22 +1166,22 @@ function paintCap(){
 let cmSel = null;
 function paintComm(keepFocus){
   if(!CM || tab!=='commission') return;
-  const ppl = commCalc().filter(p => p.name!=='Tom' && p.rows.length);
+  const ppl = commCalc().filter(p => p.rows.length);
   const keys = {}; ppl.forEach(p => p.rows.forEach(r => { keys[r.k] = 1; })); keys[CM.now] = 1;
   const ks = Object.keys(keys).sort().reverse();
-  if(!cmSel || !keys[cmSel]) cmSel = CM.now;
+  if(!cmSel || (cmSel!=='all' && !keys[cmSel])) cmSel = CM.now;
   const bs = $('cmBot');
   bs.innerHTML = '<option value="all">All bots</option>'+CM.bots.map(b => '<option value="'+esc(b)+'"'+(b===cmBot?' selected':'')+'>'+esc(b)+'</option>').join('');
   const selEl = $('cmMonth');
-  selEl.innerHTML = ks.map(k => '<option value="'+k+'"'+(k===cmSel?' selected':'')+'>'+mLabel(k)+(k===CM.now?' (so far)':'')+'</option>').join('');
-  const live = ppl.filter(p => p.active || CM.selfPaid.indexOf(p.name)>=0).sort((a,b) => b.all-a.all);
+  selEl.innerHTML = '<option value="all"'+(cmSel==='all'?' selected':'')+'>All time</option>'+ks.map(k => '<option value="'+k+'"'+(k===cmSel?' selected':'')+'>'+mLabel(k)+(k===CM.now?' (so far)':'')+'</option>').join('');
+  const live = ppl.filter(p => p.active || CM.selfPaid.indexOf(p.name)>=0).sort((a,b) => ((b.name==='Tom')-(a.name==='Tom')) || b.all-a.all);   // your own accounts first
   const old = ppl.filter(p => !(p.active || CM.selfPaid.indexOf(p.name)>=0)).sort((a,b) => b.all-a.all);
   const all = live.concat(old);
   $('cmList').innerHTML = all.map((p,i) => personHTML(p,i,cmSel)).join('') || '<div class="cm-empty">No accounts yet.</div>';
   paintCap();
   const T = {pr:0,cm:0,all:0,owed:0,paid:0};
   all.forEach(function(p){
-    const r = p.rows.filter(x => x.k===cmSel)[0];
+    const r = rowFor(p,cmSel);
     if(r){ T.pr += r.profit; T.cm += r.comm; }
     T.all += p.all; T.paid += p.paid; if(CM.selfPaid.indexOf(p.name)<0) T.owed += p.owed;
   });
