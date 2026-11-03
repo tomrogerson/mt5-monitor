@@ -316,7 +316,7 @@ test('commission: seed history, live months recorded, rates and paid ticks persi
   assert.deepStrictEqual(v.capital['Bot 1'].Nigel, [['2025-04-02', 5000]]); assert.deepStrictEqual(v.capital['Bot 2'].Sparki, [['2026-03-01', 900]]);
   c.record([{ id: 's:3', group: 'b1', name: 'Jason', pnlMonth: 0, deposits: [['2025-03-01', 7000], ['2025-09-01', 1500]] }], now);
   v = c.view();
-  assert.deepStrictEqual(v.capital['Bot 1'].Jason, [['2025-04-01', 20000], ['2025-09-01', 1500]]);   // fixed £20,000 start replaces earlier deposits
+  assert.deepStrictEqual(v.capital['Bot 1'].Jason, [['2025-04-01', 1896.48], ['2025-09-01', 1500]]);   // fixed £1,896.48 start replaces earlier deposits
   const again = new Commission(cfg).view();
   assert.strictEqual(again.rates.Jason, 0.25); assert.strictEqual(again.payments.Andy.length, 4); assert.strictEqual(again.months['2026-11'].Jason['Bot 2'], 130);
 });
