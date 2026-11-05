@@ -44,9 +44,9 @@
   color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:border-box}
-html{background:var(--bg);touch-action:pan-x pan-y}
+html{background:var(--bg);overscroll-behavior:none;touch-action:pan-x pan-y}
 body{
-  margin:0;
+  margin:0;overscroll-behavior:none;
   background:var(--bg);
   color:var(--fg);
   font-family:var(--font-body);
@@ -278,12 +278,11 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .cm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:10px;align-items:start}
 .cm{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
 .cm.unset{border-color:var(--warn)}
-.cm-top{display:grid;grid-template-columns:minmax(0,1fr) auto 14px;gap:10px 8px;align-items:center;padding:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cm-top{display:grid;grid-template-columns:minmax(0,1fr) 14px;gap:10px 8px;align-items:center;padding:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .cm-id{grid-area:1/1;display:flex;align-items:center;gap:8px;min-width:0}
 .cm-id strong{font-size:16px;white-space:nowrap}
-.cm-top .cm-owed{grid-area:1/2}
-.cm-top .chev{grid-area:1/3;margin:0}
-.cm-top .cm-grid{grid-area:2/1/3/4}
+.cm-top .chev{grid-area:1/2;margin:0}
+.cm-top .cm-grid{grid-area:2/1/3/3}
 .cm-colhd{display:none}
 .cm-sumgrid{display:grid;gap:0}
 .cm-rate{font:500 12px var(--font-num);color:var(--fg-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
@@ -371,15 +370,14 @@ body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;paddin
   .cm-sumgrid .cm-ch{margin-top:0}
   #cmStats{grid-template-columns:repeat(3,minmax(0,1fr))}
   .cm-list{grid-template-columns:minmax(0,1fr);gap:8px}
-  .cm-colhd,.cm-top{display:grid;grid-template-columns:minmax(200px,1.4fr) repeat(3,minmax(0,1fr)) minmax(120px,1fr) 14px;gap:12px;align-items:center;padding-left:18px;padding-right:18px}
+  .cm-colhd,.cm-top{display:grid;grid-template-columns:minmax(200px,1.4fr) repeat(3,minmax(0,1fr)) 14px;gap:12px;align-items:center;padding-left:18px;padding-right:18px}
   .cm-colhd{padding-top:0;padding-bottom:6px;font:600 11px var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3)}
-  .cm-colhd span:nth-child(n+2):nth-child(-n+5){text-align:right}
+  .cm-colhd span:nth-child(n+2):nth-child(-n+4){text-align:right}
   .cm-top{padding-top:12px;padding-bottom:12px}
-  .cm-id,.cm-top .cm-owed,.cm-top .chev{grid-area:auto}
+  .cm-id,.cm-top .chev{grid-area:auto}
   .cm-top .cm-grid{display:contents}
   .cm-grid .label{display:none}
   .cm-grid .v{margin:0;text-align:right;font-size:15px}
-  .cm-top .cm-owed{text-align:right}
   .cm-det{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:0 32px;padding:4px 18px 16px}
   .cm-dl{padding-top:10px}
   .cm-dr{min-width:0}
@@ -460,9 +458,9 @@ body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;paddin
     </div>
     <div id="viewComm" hidden>
       <div class="shead cm-bar"><span class="label">Commission by account</span>
-        <span class="cm-sels"><label class="sortl">Bot <select id="cmBot"></select></label><label class="sortl">Month <select id="cmMonth"></select></label></span>
+        <span class="cm-sels"><label class="sortl"><select id="cmBot" aria-label="Bot"></select></label><label class="sortl"><select id="cmMonth" aria-label="Month"></select></label></span>
       </div>
-      <div class="cm-colhd" aria-hidden="true"><span>Account</span><span>Profit</span><span>Commission</span><span>Paid to date</span><span>Owed</span><span></span></div>
+      <div class="cm-colhd" aria-hidden="true"><span>Account</span><span>Profit</span><span>Commission</span><span>Owed</span><span></span></div>
       <div class="cm-list" id="cmList"></div>
       <div class="cm-total" id="cmTotal"></div>
       <div id="cmCapWrap" hidden>
@@ -952,7 +950,7 @@ function paintAlerts(){
 }
 function paintTabs(){
   tabsEl.querySelectorAll('.tab').forEach(function(t){
-    const o = t.dataset.t==='overview' ? AGG.all : AGG[t.dataset.t];
+    const o = t.dataset.t==='overview' ? null : AGG[t.dataset.t];
     t.querySelector('.tdot').hidden = !(o && o.att>0);
   });
 }
@@ -1114,7 +1112,9 @@ function paintAll(){
 
 /* ---------- commission tab ---------- */
 let CM = null, cmOpen = {}, cmAt = 0, cmBot = 'all';
-function mval(k,n,bot){ const o = (CM.months[k]||{})[n]; if(!o) return null; if(bot && bot!=='all') return typeof o[bot]==='number' ? o[bot] : null; let t=0; for(const b in o) t+=o[b]; return t; }
+function mval(k,n,bot){
+  if(k==='tdy'||k==='wk'){ const o=(CM.short||{})[n]; if(!o) return null; if(bot && bot!=='all') return o[bot]?o[bot][k]:null; let t=0,h=false; for(const b in o){t+=o[b][k];h=true;} return h?t:null; }
+  const o = (CM.months[k]||{})[n]; if(!o) return null; if(bot && bot!=='all') return typeof o[bot]==='number' ? o[bot] : null; let t=0; for(const b in o) t+=o[b]; return t; }
 const CMON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function mLabel(k){const p=k.split('-');return CMON[+p[1]-1]+' '+p[0].slice(2);}
 function loadComm(force){
@@ -1144,10 +1144,12 @@ function commCalc(){
       const sr = (((CM.src||{})[k]||{})[n]||[]).filter(x => (bot==='all'||x[0]===bot) && Math.abs(x[2])>0.005);
       rows.push({k:k,profit:profit,comm:comm,cur:k===CM.now,src:sr});
     });
+    const short = {};
+    ['tdy','wk'].forEach(function(k){ const pr = mval(k,n,bot); if(pr!==null) short[k] = {k:k,profit:pr,comm:rate>0?pr*rate:0}; });
     const sum = (f,fn) => rows.filter(f).reduce((t,r) => t+fn(r),0);
     const pays = (CM.payments[n]||[]).slice().sort((x,y) => x[0]<y[0]?1:-1);
     const paid = pays.reduce((t,x) => t+x[1],0), done = sum(r=>!r.cur,r=>r.comm);
-    out.push({name:n,rate:rate,rows:rows,pays:pays,paid:paid,active:CM.active.indexOf(n)>=0,
+    out.push({name:n,rate:rate,rows:rows,short:short,pays:pays,paid:paid,active:CM.active.indexOf(n)>=0,
       cur:sum(r=>r.cur,r=>r.comm),
       all:sum(()=>true,r=>r.comm),
       owed: own ? 0 : done-paid});
@@ -1156,6 +1158,7 @@ function commCalc(){
 }
 function prevMonth(k){const p=k.split('-').map(Number);return p[1]===1?(p[0]-1)+'-12':p[0]+'-'+pad2(p[1]-1);}
 function rowFor(p,sel){
+  if(sel==='tdy'||sel==='wk') return p.short[sel];
   if(sel!=='all') return p.rows.filter(r => r.k===sel)[0];
   if(!p.rows.length) return undefined;
   return {k:'all',profit:p.rows.reduce((t,r) => t+r.profit,0),comm:p.rows.reduce((t,r) => t+r.comm,0)};
@@ -1171,11 +1174,12 @@ function personHTML(p,i,sel){
     + '<div class="cm-id"><strong class="aname">'+esc(p.name)+'</strong><span class="cm-rate">'+(own&&p.rate===0?'mine':p.rate===null?'no rate':(Math.round(p.rate*1000)/10)+'%')+'</span>'+(p.active||own?'':'<span class="cm-rate">closed</span>')+'</div>'
     + '<div class="cm-grid"><div><div class="label">Profit</div><div class="v num '+(r0?cls(r0.profit):'')+'">'+(r0?money(r0.profit):'—')+'</div></div>'
     + '<div><div class="label">Commission</div><div class="v num '+(r0?cls(r0.comm):'')+'">'+(r0&&Math.abs(r0.comm)>0.005?money(r0.comm):'—')+'</div></div>'
-    + '<div><div class="label">Paid to date</div><div class="v num">'+(all&&p.paid>0?money(p.paid):'—')+'</div></div></div>'
-    + '<span class="cm-owed '+(!all||own?'flat':(p.owed>0.005?'up':(p.owed<-0.005?'down':'flat')))+'">'+owedTxt+'</span><span class="chev" aria-hidden="true"></span></div>';
+    + '<div><div class="label">Owed</div><div class="v num '+(!all||own?'':(p.owed>0.005?'up':(p.owed<-0.005?'down':'')))+'">'+owedTxt+'</div></div></div>'
+    + '<span class="chev" aria-hidden="true"></span></div>';
   if(open){
     h += '<div class="cm-det"><div class="cm-dl"><div class="label cm-pl">Payments received</div>'
-      + (p.pays.length ? p.pays.map(x => '<div class="cm-pay-row"><span>'+dLabel(x[0])+'</span><span class="num">'+money(x[1])+'</span></div>').join('') : '<div class="cm-empty">None logged yet.</div>');
+      + (p.pays.length ? p.pays.map(x => '<div class="cm-pay-row"><span>'+dLabel(x[0])+'</span><span class="num">'+money(x[1])+'</span></div>').join('')
+        + '<div class="cm-pay-row"><span><strong>Total</strong></span><span class="num"><strong>'+money(p.paid)+'</strong></span></div>' : '<div class="cm-empty">None logged yet.</div>');
     if(own) h += '<div class="cm-empty">Your own account: counted in full, nothing owed.</div>';
     if(p.owed<-0.005 && !own) h += '<div class="cm-empty">In credit: losing months have taken '+money(-p.owed)+' off, to be netted against future commission.</div>';
     h += '<div class="cm-empty">* month so far, not counted as owed until it ends</div></div><div class="cm-dr">'
@@ -1241,14 +1245,14 @@ function paintCap(){
 let cmSel = null;
 function paintComm(keepFocus){
   if(!CM || tab!=='commission') return;
-  const ppl = commCalc().filter(p => p.rows.length);
+  const ppl = commCalc().filter(p => p.rows.length || p.short.tdy || p.short.wk);
   const keys = {}; ppl.forEach(p => p.rows.forEach(r => { keys[r.k] = 1; })); keys[CM.now] = 1;
   const ks = Object.keys(keys).sort().reverse();
-  if(!cmSel || (cmSel!=='all' && !keys[cmSel])) cmSel = CM.now;
+  if(!cmSel || (cmSel!=='all' && cmSel!=='tdy' && cmSel!=='wk' && !keys[cmSel])) cmSel = CM.now;
   const bs = $('cmBot');
   bs.innerHTML = '<option value="all">All bots</option>'+CM.bots.map(b => '<option value="'+esc(b)+'"'+(b===cmBot?' selected':'')+'>'+esc(b)+'</option>').join('');
   const selEl = $('cmMonth');
-  selEl.innerHTML = '<option value="all"'+(cmSel==='all'?' selected':'')+'>All time</option>'+ks.map(k => '<option value="'+k+'"'+(k===cmSel?' selected':'')+'>'+mLabel(k)+(k===CM.now?' (so far)':'')+'</option>').join('');
+  selEl.innerHTML = '<option value="tdy"'+(cmSel==='tdy'?' selected':'')+'>Today</option><option value="wk"'+(cmSel==='wk'?' selected':'')+'>This week</option><option value="all"'+(cmSel==='all'?' selected':'')+'>All time</option>'+ks.map(k => '<option value="'+k+'"'+(k===cmSel?' selected':'')+'>'+mLabel(k)+(k===CM.now?' (so far)':'')+'</option>').join('');
   const live = ppl.filter(p => p.active || CM.selfPaid.indexOf(p.name)>=0).sort((a,b) => ((b.name==='Tom')-(a.name==='Tom')) || b.all-a.all);   // your own accounts first
   const old = ppl.filter(p => !(p.active || CM.selfPaid.indexOf(p.name)>=0)).sort((a,b) => b.all-a.all);
   const all = live.concat(old);
@@ -1263,8 +1267,8 @@ function paintComm(keepFocus){
   $('cmTotal').innerHTML = '<div class="cm-top"><div class="cm-id"><strong class="aname">Total</strong></div>'
     + '<div class="cm-grid"><div><div class="label">Profit</div><div class="v num '+cls(T.pr)+'">'+money(T.pr)+'</div></div>'
     + '<div><div class="label">Commission</div><div class="v num '+cls(T.cm)+'">'+money(T.cm)+'</div></div>'
-    + '<div><div class="label">Paid to date</div><div class="v num">'+(cmBot==='all'?money(T.paid):'—')+'</div></div></div>'
-    + '<span class="cm-owed '+(cmBot==='all'&&T.owed>0.005?'up':'flat')+'">'+(cmBot==='all'?money(T.owed)+' owed':'—')+'</span><span></span></div>';
+    + '<div><div class="label">Owed</div><div class="v num '+(cmBot==='all'&&T.owed>0.005?'up':'')+'">'+(cmBot==='all'?money(T.owed):'—')+'</div></div></div>'
+    + '<span></span></div>';
 }
 (function(){
   const root = $('viewComm');
