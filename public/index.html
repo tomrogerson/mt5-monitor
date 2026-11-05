@@ -252,9 +252,9 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
   #content:not([hidden]){grid-template-columns:440px minmax(0,1fr);gap:0 28px}
 }
 /* big monitors: scale everything up a little so the page fills the screen */
-@media (min-width:1800px){ body:not(.wall){zoom:1.15} }
-@media (min-width:2300px){ body:not(.wall){zoom:1.35} }
-@media (min-width:3000px){ body:not(.wall){zoom:1.8} }
+@media (min-width:1800px){ body:not(.wall):not(.wallo){zoom:1.15} }
+@media (min-width:2300px){ body:not(.wall):not(.wallo){zoom:1.35} }
+@media (min-width:3000px){ body:not(.wall):not(.wallo){zoom:1.8} }
 
 /* ---------- /wall: every account on one screen, nothing to tap ---------- */
 .wall .tabs,.wall .chart,.wall .ranges,.wall .row2,.wall .spark,.wall .details,.wall .chev,.wall .flags{display:none!important}
@@ -306,7 +306,7 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .cm-sumgrid{display:grid;gap:0}
 .cm-rate{font:500 12px var(--font-num);color:var(--fg-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
 .cm-owed{font:600 15px var(--font-num);white-space:nowrap}
-.cm-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
+.cm-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
 .cm-grid .v{font-size:14px;font-weight:500;margin-top:2px}
 .cm-det{padding:0 14px 14px;border-top:1px solid var(--line)}
 .cm-edit{display:flex;align-items:center;gap:8px;margin:12px 0 6px;flex-wrap:wrap}
@@ -328,9 +328,9 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
   .cm-sumgrid .cm-ch{margin-top:0}
   #cmStats{grid-template-columns:repeat(3,minmax(0,1fr))}
   .cm-list{grid-template-columns:minmax(0,1fr);gap:8px}
-  .cm-colhd,.cm-top{display:grid;grid-template-columns:minmax(200px,1.4fr) repeat(4,minmax(0,1fr)) minmax(120px,1fr) 14px;gap:12px;align-items:center;padding-left:18px;padding-right:18px}
+  .cm-colhd,.cm-top{display:grid;grid-template-columns:minmax(200px,1.4fr) repeat(3,minmax(0,1fr)) minmax(120px,1fr) 14px;gap:12px;align-items:center;padding-left:18px;padding-right:18px}
   .cm-colhd{padding-top:0;padding-bottom:6px;font:600 11px var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3)}
-  .cm-colhd span:nth-child(n+2):nth-child(-n+6){text-align:right}
+  .cm-colhd span:nth-child(n+2):nth-child(-n+5){text-align:right}
   .cm-top{padding-top:12px;padding-bottom:12px}
   .cm-id,.cm-top .cm-owed,.cm-top .chev{grid-area:auto}
   .cm-top .cm-grid{display:contents}
@@ -342,6 +342,45 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
   .cm-dr{min-width:0}
   .cm-mrow{grid-template-columns:70px minmax(0,1fr) minmax(0,1fr)}
 }
+
+/* ---------- /wall: the overview for a 27in wall screen. Laid out at 1920x1080 and scaled to fit by wallFit() ---------- */
+body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;padding-bottom:0}
+.wallo .bar{position:static}
+.wallo .tabs,.wallo .ranges,.wallo .chev,.wallo #attHead,.wallo #alist,.wallo .sub2 a,.wallo .note{display:none!important}
+.wallo .bar .top{padding:14px 32px 10px}
+.wallo h1{font-size:24px}
+.wallo .sub2{font-size:15px}
+.wallo .pill{font-size:17px;padding:7px 16px}
+.wallo main.gutter{flex:1;min-height:0;width:100%;max-width:none;margin:0;padding:0 32px 26px;display:flex;flex-direction:column}
+.wallo #content:not([hidden]){flex:1;min-height:0;display:grid;grid-template-columns:540px minmax(0,1fr);gap:26px;align-items:stretch;margin-top:18px}
+.wallo #content > .panel{position:static;margin:0;display:flex;flex-direction:column;min-height:0;padding:24px}
+.wallo .sum-head{align-items:flex-start}
+.wallo .total{font-size:62px}
+.wallo .label{font-size:13px}
+.wallo .chg-val{font-size:26px}
+.wallo .chg-sub,.wallo .chg-ex{font-size:15px}
+.wallo .chart{flex:1;min-height:180px;height:auto;margin-top:18px}
+.wallo .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 16px;margin-top:18px;padding-top:18px}
+.wallo .stat .v{font-size:25px;margin-top:4px}
+.wallo #viewOverview{display:flex;flex-direction:column;min-height:0}
+.wallo #viewOverview > .shead{margin:0 0 12px}
+.wallo .bots{flex:1;min-height:0;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));grid-auto-rows:minmax(0,1fr);gap:16px;align-items:stretch;pointer-events:none}
+.wallo .bot{display:flex;flex-direction:column;padding:22px 24px;cursor:default;min-height:0;overflow:hidden}
+.wallo .bot .aname{font-size:28px}
+.wallo .bot .bn,.wallo .tag{font-size:15px}
+.wallo .bot .mrow{margin-top:14px}
+.wallo .bot .eq{font-size:33px;white-space:nowrap}
+.wallo .bot .fl{font-size:16px;white-space:nowrap}
+.wallo .bot .flags{margin-top:12px}
+.wallo .bot .flags .flag,.wallo .bot .flags > *{font-size:15px}
+.wallo .bot .spark{flex:1;min-height:56px;height:auto;margin:16px 6px 0 0}
+.wallo .bot .spark svg{height:100%}
+.mini2{display:none}
+.wallo .bot .mini{gap:10px;margin-top:16px;padding-top:14px}
+.wallo .bot .mini2{display:grid;margin-top:10px;padding-top:12px}
+.wallo .bot .mini .label{font-size:12px}
+.wallo .bot .mini .num{font-size:17px;font-weight:500;white-space:nowrap}
+.wallo .bot .mini .sub{font-size:13px}
 </style>
 </head>
 <body>
@@ -395,7 +434,7 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
     <div id="viewOverview">
       <div class="shead"><span class="label">Bots, accounts combined</span></div>
       <div class="bots" id="bots"></div>
-      <div class="shead"><span class="label">Needs attention</span><span class="num" id="attCount">0</span></div>
+      <div class="shead" id="attHead"><span class="label">Needs attention</span><span class="num" id="attCount">0</span></div>
       <div class="alist" id="alist"></div>
     </div>
 
@@ -418,7 +457,7 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
       <div class="shead cm-bar"><span class="label">Commission by account</span>
         <span class="cm-sels"><label class="sortl">Bot <select id="cmBot"></select></label><label class="sortl">Month <select id="cmMonth"></select></label></span>
       </div>
-      <div class="cm-colhd" aria-hidden="true"><span>Account</span><span>Profit</span><span>Commission</span><span>Paid to date</span><span>All time</span><span>Owed</span><span></span></div>
+      <div class="cm-colhd" aria-hidden="true"><span>Account</span><span>Profit</span><span>Commission</span><span>Paid to date</span><span>Owed</span><span></span></div>
       <div class="cm-list" id="cmList"></div>
       <div class="cm-total" id="cmTotal"></div>
       <div id="cmCapWrap" hidden>
@@ -442,8 +481,18 @@ const RANGES = {
   '30d':{n:120,step:360,  label:'30 days'},
   '1y': {n:183,step:2880, label:'1 year'}
 };
-const WALL = location.pathname === '/wall';
+const WALLP = location.pathname.replace(/\/+$/,'');
+const WALLO = WALLP === '/wall';               // /wall: the overview laid out for a big wall screen
+const WALL = WALLP === '/wall/accounts';       // /wall/accounts: every account on one screen
 if(WALL) document.body.classList.add('wall');
+if(WALLO) document.body.classList.add('wallo');
+function wallFit(){
+  if(!WALLO) return;
+  const sc = Math.min(innerWidth/1920, innerHeight/1080), b = document.body;
+  b.style.zoom = sc; b.style.width = (innerWidth/sc)+'px'; b.style.height = (innerHeight/sc)+'px';
+  document.documentElement.style.overflow = 'hidden';
+}
+if(WALLO){ wallFit(); addEventListener('resize', function(){ wallFit(); if(typeof renderChart==='function') renderChart(); }); }
 let range = '24h';
 try{ const r0 = localStorage.getItem('range'); if(RANGES[r0]) range = r0; }catch(e){}
 let N = RANGES[range].n;         // points in the curve
@@ -555,7 +604,7 @@ function mapAcct(x,idx,open){
 /* ---------- status logic ---------- */
 function sev(a){
   if(!a.connected) return 3;
-  if(a.dd>0.10) return 2;
+  if(a.dd>0.20) return 2;
   if(a.ml!==null && a.ml<300) return 1;
   return 0;
 }
@@ -563,7 +612,7 @@ function flags(a){
   const f=[];
   if(!a.connected) f.push({k:'off',text:'Disconnected '+ago(a.lostAt)+' ago'});
   else {
-    if(a.dd>0.10) f.push({k:'down',text:'Drawdown '+(a.dd*100).toFixed(1)+'%'});
+    if(a.dd>0.20) f.push({k:'down',text:'Drawdown '+(a.dd*100).toFixed(1)+'%'});
     if(a.ml!==null && a.ml<300) f.push({k:'warn',text:'Margin level '+nf0.format(a.ml)+'%'});
   }
   return f;
@@ -574,13 +623,16 @@ function flagsHTML(f){return f.map(x => '<span class="flag '+x.k+'">'+x.text+'</
 /* PU Prime (Ting Tong) trades alone do not make the Bot 2 summary card show as active */
 const QUIET_LOGINS = new Set(['33801407']);
 function aggregate(list){
-  const o = {n:list.length,eq:0,fl:0,cl:0,wk:0,mo:0,haveWk:false,bal:0,balWk:0,op:0,opx:0,conn:0,low:null,lowName:'',att:0,worst:0,from:0,
+  const o = {n:list.length,eq:0,fl:0,cl:0,wk:0,mo:0,haveWk:false,bal:0,balWk:0,lm:0,balLm:0,haveLm:false,d90:0,balD:0,haveD:false,ytd:0,balY:0,haveY:false,op:0,opx:0,conn:0,low:null,lowName:'',att:0,worst:0,from:0,
              list:list,series:new Array(N).fill(null),c:{off:0,down:0,warn:0}};
   let f = 0;
   for(const a of list){
     o.eq+=a.equity; o.fl+=a.float; o.cl+=a.closedSum; o.op+=a.pos.length; o.bal+=a.bal;
     if(!QUIET_LOGINS.has(String(a.login))) o.opx+=a.pos.length;   /* trades that count as 'active' on the group summary card */
     if(a.wk!==null){o.wk+=a.wk;o.mo+=a.mo;o.haveWk=true;o.balWk+=a.bal;}
+    if(a.lm!==null){o.lm+=a.lm;o.haveLm=true;o.balLm+=a.bal;}
+    if(a.d90!==null){o.d90+=a.d90;o.haveD=true;o.balD+=a.bal;}
+    if(a.ytd!==null){o.ytd+=a.ytd;o.haveY=true;o.balY+=a.bal;}
     if(a.connected) o.conn++;
     if(a.connected && a.ml!==null && (o.low===null||a.ml<o.low)){o.low=a.ml;o.lowName=a.name;}
     flags(a).forEach(x => o.c[x.k]++);
@@ -618,6 +670,12 @@ function botHTML(g){
   +   '<div><div class="label">Week</div><div class="num wk" data-k="wk"></div></div>'
   +   '<div><div class="label">Month</div><div class="num mo" data-k="mo"></div></div>'
   +   '<div><div class="label">Online</div><div class="num onl"></div></div>'
+  + '</div>'
+  + '<div class="mini mini2">'
+  +   '<div><div class="label">Last month</div><div class="num lm" data-k="lm"></div></div>'
+  +   '<div><div class="label">90 days</div><div class="num d90" data-k="d90"></div></div>'
+  +   '<div><div class="label">This year</div><div class="num ytd" data-k="ytd"></div></div>'
+  +   '<div><div class="label">Open trades</div><div class="num opn"></div></div>'
   + '</div></div>';
 }
 function cardHTML(a,i){
@@ -641,7 +699,7 @@ function cardHTML(a,i){
   + '</article>';
 }
 function buildDOM(){
-  tabsEl.innerHTML = [{key:'overview',label:'Overview'}].concat(groups.map(g=>({key:g.key,label:g.label})), WALL?[]:[{key:'commission',label:'Commission'}]).map(t =>
+  tabsEl.innerHTML = [{key:'overview',label:'Overview'}].concat(groups.map(g=>({key:g.key,label:g.label})), (WALL||WALLO)?[]:[{key:'commission',label:'Commission'}]).map(t =>
     '<button class="tab" type="button" role="tab" data-t="'+esc(t.key)+'" aria-selected="false">'+esc(t.label)+'<span class="tdot" hidden></span></button>'
   ).join('');
   botsEl.innerHTML = groups.map(botHTML).join('');
@@ -650,7 +708,7 @@ function buildDOM(){
     const root = botsEl.children[i];
     const q = s => root.querySelector(s);
     botNodes[g.key] = {root:root,dot:q('.sdot'),bn:q('.bn'),flags:q('.flags'),eq:q('.eq'),fl:q('.fl'),spark:q('.spark'),ln:q('.spark .ln'),
-      area:q('.spark .area'),edot:q('.edot'),tdy:q('.tdy'),wk:q('.wk'),mo:q('.mo'),onl:q('.onl')};
+      area:q('.spark .area'),edot:q('.edot'),tdy:q('.tdy'),wk:q('.wk'),mo:q('.mo'),onl:q('.onl'),lm:q('.lm'),d90:q('.d90'),ytd:q('.ytd'),opn:q('.opn')};
   });
   cardsEl.innerHTML = accts.map(cardHTML).join('');
   nodes = accts.map(function(a,i){
@@ -790,7 +848,7 @@ function paintSpark(n,series){
   const sp = sparkPath(series);
   n.ln.setAttribute('d',sp.line);
   n.area.setAttribute('d',sp.area);
-  n.edot.style.top = sp.lastY+'px';
+  n.edot.style.top = (sp.lastY/32*100)+'%';
   n.spark.classList.toggle('neg',series[N-1]<series[firstIdx(series)]);
 }
 function flash(el,dir){
@@ -847,6 +905,8 @@ function paintBots(){
     setPL(n.fl,o.fl);
     setPer(n.tdy,o.cl,o.bal);
     setPer(n.wk,o.haveWk?o.wk:null,o.balWk); setPer(n.mo,o.haveWk?o.mo:null,o.balWk);
+    setPer(n.lm,o.haveLm?o.lm:null,o.balLm); setPer(n.d90,o.haveD?o.d90:null,o.balD); setPer(n.ytd,o.haveY?o.ytd:null,o.balY);
+    n.opn.textContent = o.op;
     n.onl.textContent = o.conn+'/'+o.n;
     n.onl.classList.toggle('warn',o.conn<o.n);
     const f = [];
@@ -957,7 +1017,7 @@ function timeAt(i){return new Date(Date.now()-(N-1-i)*STEP_MIN*60000);}
 function renderChart(){
   const tot = chartSeries;
   if(!tot){chartEl.innerHTML='';return;}
-  const W = chartEl.clientWidth || 340, H = 156, padT = 10, padB = 22;
+  const W = chartEl.clientWidth || 340, H = (WALLO && chartEl.clientHeight) || 156, padT = 10, padB = 22;
   const f = chartFrom;
   let mn=Infinity,mx=-Infinity;
   for(let i=f;i<N;i++){const v=tot[i];if(v<mn)mn=v;if(v>mx)mx=v;}
@@ -1105,8 +1165,7 @@ function personHTML(p,i,sel){
     + '<div class="cm-id"><strong class="aname">'+esc(p.name)+'</strong><span class="cm-rate">'+(own&&p.rate===0?'mine':p.rate===null?'no rate':(Math.round(p.rate*1000)/10)+'%')+'</span>'+(p.active||own?'':'<span class="cm-rate">closed</span>')+'</div>'
     + '<div class="cm-grid"><div><div class="label">Profit</div><div class="v num '+(r0?cls(r0.profit):'')+'">'+(r0?money(r0.profit):'—')+'</div></div>'
     + '<div><div class="label">Commission</div><div class="v num '+(r0?cls(r0.comm):'')+'">'+(r0&&Math.abs(r0.comm)>0.005?money(r0.comm):'—')+'</div></div>'
-    + '<div><div class="label">Paid to date</div><div class="v num">'+(all&&p.paid>0?money(p.paid):'—')+'</div></div>'
-    + '<div><div class="label">All time</div><div class="v num">'+money(p.all)+'</div></div></div>'
+    + '<div><div class="label">Paid to date</div><div class="v num">'+(all&&p.paid>0?money(p.paid):'—')+'</div></div></div>'
     + '<span class="cm-owed '+(!all||own?'flat':(p.owed>0.005?'up':(p.owed<-0.005?'down':'flat')))+'">'+owedTxt+'</span><span class="chev" aria-hidden="true"></span></div>';
   if(open){
     h += '<div class="cm-det"><div class="cm-dl"><div class="label cm-pl">Payments received</div>'
@@ -1198,8 +1257,7 @@ function paintComm(keepFocus){
   $('cmTotal').innerHTML = '<div class="cm-top"><div class="cm-id"><strong class="aname">Total</strong></div>'
     + '<div class="cm-grid"><div><div class="label">Profit</div><div class="v num '+cls(T.pr)+'">'+money(T.pr)+'</div></div>'
     + '<div><div class="label">Commission</div><div class="v num '+cls(T.cm)+'">'+money(T.cm)+'</div></div>'
-    + '<div><div class="label">Paid to date</div><div class="v num">'+(cmBot==='all'?money(T.paid):'—')+'</div></div>'
-    + '<div><div class="label">All time</div><div class="v num">'+money(T.all)+'</div></div></div>'
+    + '<div><div class="label">Paid to date</div><div class="v num">'+(cmBot==='all'?money(T.paid):'—')+'</div></div></div>'
     + '<span class="cm-owed '+(cmBot==='all'&&T.owed>0.005?'up':'flat')+'">'+(cmBot==='all'?money(T.owed)+' owed':'—')+'</span><span></span></div>';
 }
 (function(){
@@ -1294,7 +1352,7 @@ if(h && h!=='overview') hashTab = h;
 connect();
 /* a hidden tab or locked phone does not need the live stream: close it to save bandwidth, reopen on return (the wall view stays live) */
 document.addEventListener('visibilitychange', function(){
-  if(typeof WALL!=='undefined' && WALL) return;
+  if((typeof WALL!=='undefined' && WALL) || (typeof WALLO!=='undefined' && WALLO)) return;
   if(document.hidden){ if(es){ try{es.close();}catch(e){} es=null; linkUp=false; } }
   else if(!es || es.readyState===2){ connect(); loadSeries(); }
 });
