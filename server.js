@@ -194,7 +194,7 @@ function createApp(cfg, provider, history) {
       const given = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
       if (!auth.checkPassword(given, cfg.ingestToken)) return json(res, 401, { error: 'unauthorised' });
       let body;
-      try { body = JSON.parse(await readBody(req, 1024 * 1024)); const id = provider.ingest(body); if (body.connected !== false) history.track(id, body.equity - body.balance - (Number(body.credit) || 0), body.balance, weekStartMs()); } catch (e) { return json(res, 400, { error: String(e.message || e) }); }
+      try { body = JSON.parse(await readBody(req, 1024 * 1024)); const id = provider.ingest(body); if (id && body.connected !== false) history.track(id, body.equity - body.balance - (Number(body.credit) || 0), body.balance, weekStartMs()); } catch (e) { return json(res, 400, { error: String(e.message || e) }); }
       // bare 204: the collector posts every second per terminal and every reply counts as outbound bandwidth
       res.writeHead(204); res.end(); return;
     }
@@ -206,7 +206,7 @@ function createApp(cfg, provider, history) {
       return send(res, 302, '', { Location: '/login' });
     }
 
-    if (p === '/' || p === '/index.html' || p === '/wall') return serveFile(res, 'index.html');
+    if (p === '/' || p === '/index.html' || p === '/wall' || p === '/wall/' || p === '/wall/accounts') return serveFile(res, 'index.html');
     if (p === '/api/state') return json(res, 200, buildLive());
     if (p === '/api/commission') {
       if (req.method === 'POST') {
