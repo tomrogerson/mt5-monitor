@@ -157,7 +157,9 @@ def period_pnl(tz_name, offset):
     week, month = period_starts_utc(tz_name)
     wk_s = int(week.timestamp()) + offset
     mo_s = int(month.timestamp()) + offset
-    frm = datetime.fromtimestamp(min(wk_s, mo_s) - 86400, tz=timezone.utc)
+    td_s = int(start_of_today_utc(tz_name).timestamp()) + offset
+    yd_s = td_s - 86400   # start of yesterday (a day is 24h except across clock changes, which a closed-trade total can ignore)
+    frm = datetime.fromtimestamp(min(wk_s, mo_s, yd_s) - 86400, tz=timezone.utc)
     to = datetime.fromtimestamp(time.time() + offset + 86400, tz=timezone.utc)
     deals = mt5.history_deals_get(frm, to) or []
     groups = {}
@@ -169,7 +171,7 @@ def period_pnl(tz_name, offset):
         if d.entry in (mt5.DEAL_ENTRY_OUT, mt5.DEAL_ENTRY_OUT_BY, mt5.DEAL_ENTRY_INOUT):
             g["closed"] = True
             g["t"] = max(g["t"], d.time)
-    w = m = 0.0
+    w = m = y = 0.0
     for g in groups.values():
         if not g["closed"]:
             continue
@@ -177,7 +179,9 @@ def period_pnl(tz_name, offset):
             w += g["pnl"]
         if g["t"] >= mo_s:
             m += g["pnl"]
-    return w, m
+        if yd_s <= g["t"] < td_s:
+            y += g["pnl"]
+    return w, m, y
 
 
 def balance_flows(offset):
@@ -304,7 +308,9 @@ def collect(name, group, tz_name, offset_hours, state):
         "closed": closed,
     }
     if per:
-        payload["pnlWeek"], payload["pnlMonth"] = per
+        payload["pnlWeek"], payload["pnlMonth"] = per[0], per[1]
+        if len(per) > 2:
+            payload["pnlYesterday"] = per[2]
     if flows is not None:
         payload["flows"] = flows
     if lng:
