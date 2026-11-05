@@ -307,6 +307,7 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 /* ---------- /wall: the overview for a 27in wall screen. Laid out at 1920x1080 and scaled to fit by wallFit() ---------- */
 body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;padding-bottom:0}
 .wallo .bar{position:static}
+#chart2{display:none}
 .wallo .tabs,.wallo .ranges,.wallo .chev,.wallo #attHead,.wallo #alist,.wallo .sub2 a,.wallo .note{display:none!important}
 .wallo .bar .top{padding:14px 32px 10px}
 .wallo h1{font-size:24px}
@@ -320,7 +321,9 @@ body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;paddin
 .wallo .label{font-size:13px}
 .wallo .chg-val{font-size:26px}
 .wallo .chg-sub,.wallo .chg-ex{font-size:15px}
-.wallo .chart{flex:1;min-height:180px;height:auto;margin-top:18px}
+.wallo .chart{flex:1;min-height:120px;height:auto;margin-top:14px}
+.wallo #chart2{display:block}
+.ctag{fill:var(--fg-2);font:600 12px var(--font-body);letter-spacing:.08em;text-transform:uppercase}
 .wallo .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 16px;margin-top:18px;padding-top:18px}
 .wallo .stat .v{font-size:25px;margin-top:4px}
 .wallo #viewOverview{display:flex;flex-direction:column;min-height:0}
@@ -421,6 +424,7 @@ body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;paddin
         </div>
       </div>
       <div class="chart" id="chart"></div>
+      <div class="chart" id="chart2"></div>
       <div class="ranges" id="ranges" role="group" aria-label="Chart time range">
         <button type="button" data-r="24h">24H</button><button type="button" data-r="7d">7D</button><button type="button" data-r="30d">30D</button><button type="button" data-r="1y">1Y</button>
       </div>
@@ -475,6 +479,17 @@ body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;paddin
 <script>
 (function(){
 'use strict';
+// stop the page rubber-banding at the top and bottom (iOS ignores overscroll-behavior in some cases)
+(function(){
+  let y0 = 0;
+  addEventListener('touchstart',function(e){ y0 = e.touches[0].clientY; },{passive:true});
+  addEventListener('touchmove',function(e){
+    if(e.touches.length!==1 || WALLP==='/wall' || WALLP==='/wall/accounts') return;
+    let n = e.target; while(n && n!==document.body){ const cs = getComputedStyle(n); if((cs.overflowY==='auto'||cs.overflowY==='scroll') && n.scrollHeight>n.clientHeight) return; n = n.parentNode; }
+    const d = e.touches[0].clientY-y0, el = document.scrollingElement || document.documentElement;
+    if((d>0 && el.scrollTop<=0) || (d<0 && el.scrollTop+innerHeight>=el.scrollHeight-1)) e.preventDefault();
+  },{passive:false});
+})();
 // no pinch or double-tap zoom (iOS ignores the viewport setting, so block its gesture events too)
 ['gesturestart','gesturechange','gestureend'].forEach(function(ev){document.addEventListener(ev,function(e){e.preventDefault();});});
 
@@ -495,7 +510,7 @@ function wallFit(){
   b.style.zoom = sc; b.style.width = (innerWidth/sc)+'px'; b.style.height = (innerHeight/sc)+'px';
   document.documentElement.style.overflow = 'hidden';
 }
-if(WALLO){ wallFit(); addEventListener('resize', function(){ wallFit(); if(typeof renderChart==='function') renderChart(); }); }
+if(WALLO){ wallFit(); addEventListener('resize', function(){ wallFit(); if(typeof renderChart==='function') renderChart(); if(typeof wallCharts==='function') wallCharts(); }); }
 let range = '24h';
 try{ const r0 = localStorage.getItem('range'); if(RANGES[r0]) range = r0; }catch(e){}
 let N = RANGES[range].n;         // points in the curve
@@ -1018,10 +1033,11 @@ function chartFlows(o,f){
   return sum;
 }
 function timeAt(i){return new Date(Date.now()-(N-1-i)*STEP_MIN*60000);}
-function renderChart(){
+function renderChart(el,tag){
+  const E = el || chartEl, side = !!el;   /* side: one of the two fixed charts on /wall */
   const tot = chartSeries;
-  if(!tot){chartEl.innerHTML='';return;}
-  const W = chartEl.clientWidth || 340, H = (WALLO && chartEl.clientHeight) || 156, padT = 10, padB = 22;
+  if(!tot){E.innerHTML='';return;}
+  const W = E.clientWidth || 340, H = (WALLO && E.clientHeight) || 156, padT = 10, padB = 22;
   const f = chartFrom;
   let mn=Infinity,mx=-Infinity;
   for(let i=f;i<N;i++){const v=tot[i];if(v<mn)mn=v;if(v>mx)mx=v;}
@@ -1057,9 +1073,11 @@ function renderChart(){
   const li = scrub===null ? N-1 : Math.max(f,scrub);
   const cx = X(li), cy = Y(tot[li]);
   const cross = scrub===null ? '' : '<line class="cross" x1="'+cx.toFixed(1)+'" x2="'+cx.toFixed(1)+'" y1="'+padT+'" y2="'+base+'"/>';
-  chartEl.innerHTML = '<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Equity over time">'
+  if(!(WALLO && !side)) E.innerHTML = '<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Equity over time">'
     + grid + '<path class="area-main" d="'+area+'"/><path class="ln-main" d="'+line+'"/>' + cross
-    + '<circle class="end" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="4.5"/>' + xl + '</svg>';
+    + '<circle class="end" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="4.5"/>' + xl
+    + (tag ? '<text class="ctag" x="0" y="9">'+tag+'</text>' : '') + '</svg>';
+  if(side) return;
   const cv=$('chgVal'), cs=$('chgSub'), cx2=$('chgEx');
   if(scrub===null){
     const flw = chartFlows(chartAgg,f);          // deposits/withdrawals are not profit or loss
@@ -1086,7 +1104,34 @@ chartEl.addEventListener('pointerdown',scrubAt);
 ['pointerleave','pointercancel','pointerup'].forEach(function(ev){
   chartEl.addEventListener(ev,function(){scrub=null;renderChart();});
 });
-if(typeof ResizeObserver!=='undefined') new ResizeObserver(renderChart).observe(chartEl);
+/* /wall: the left panel shows a 7 day chart above a 30 day chart, each with its own data */
+const chart2El = $('chart2');
+let wallData = {};
+function wallCharts(){
+  if(!WALLO || !wallData['7d'] || !wallData['30d'] || !accts.length) return;
+  const keep = {range:range,N:N,STEP_MIN:STEP_MIN,sc:seriesCache,fc:flowCache,cs:chartSeries,cf:chartFrom,ca:chartAgg,ser:accts.map(a => a.series)};
+  [['7d',chartEl,'7 days'],['30d',chart2El,'30 days']].forEach(function(c){
+    range = c[0]; N = RANGES[range].n; STEP_MIN = RANGES[range].step;
+    seriesCache = wallData[c[0]].series || {}; flowCache = wallData[c[0]].flows || {};
+    accts.forEach(a => { a.series = seriesFor(a.id,a.equity); });
+    const o = aggregate(accts.filter(a => !a.demo));
+    chartSeries = o.series; chartFrom = o.from; chartAgg = o;
+    renderChart(c[1],c[2]);
+  });
+  range = keep.range; N = keep.N; STEP_MIN = keep.STEP_MIN; seriesCache = keep.sc; flowCache = keep.fc;
+  chartSeries = keep.cs; chartFrom = keep.cf; chartAgg = keep.ca;
+  accts.forEach((a,i) => { a.series = keep.ser[i]; });
+}
+function loadWallSeries(){
+  ['7d','30d'].forEach(function(r){
+    fetch('/api/series?range='+r,{credentials:'same-origin',cache:'no-store'}).then(x => x.ok ? x.json() : null)
+      .then(j => { if(j){ wallData[r] = j; wallCharts(); } }).catch(function(){});
+  });
+}
+if(typeof ResizeObserver!=='undefined'){
+  new ResizeObserver(function(){ renderChart(); wallCharts(); }).observe(chartEl);
+  if(chart2El) new ResizeObserver(function(){ wallCharts(); }).observe(chart2El);
+}
 
 function paintAll(){
   computeAgg();
@@ -1107,6 +1152,7 @@ function paintAll(){
   paintTabs();
   paintSummary();
   renderChart();
+  wallCharts();
 }
 
 
@@ -1334,6 +1380,7 @@ function loadSeries(){
       seriesCache = j.series || {}; flowCache = j.flows || {};
       accts.forEach(a => { a.series = seriesFor(a.id,a.equity); });
       paintAll();
+      if(WALLO) loadWallSeries();
     }).catch(function(){});
 }
 let es = null;
