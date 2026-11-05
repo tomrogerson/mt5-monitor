@@ -206,7 +206,7 @@ function createApp(cfg, provider, history) {
       return send(res, 302, '', { Location: '/login' });
     }
 
-    if (p === '/' || p === '/index.html' || p === '/wall' || p === '/wall/' || p === '/wall/accounts') return serveFile(res, 'index.html');
+    if (p === '/' || p === '/index.html' || p === '/wall' || p === '/wall/' || p === '/wall/accounts' || p === '/desktop' || p === '/desktop/') return serveFile(res, 'index.html');
     if (p === '/api/state') return json(res, 200, buildLive());
     if (p === '/api/commission') {
       if (req.method === 'POST') {
