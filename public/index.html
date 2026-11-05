@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#0b1012">
+<meta name="theme-color" content="#070d0f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="MT5 Monitor">
@@ -21,9 +21,9 @@
 :root{
   --font-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --font-num:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-  --bg:#0b1012;
-  --surface:#121a1d;
-  --line:#223036;
+  --bg:#070d0f;
+  --surface:#0e171a;
+  --line:#1b2a30;
   --fg:#e4ecec;
   --fg-2:#9db0b4;
   --fg-3:#7f9298;
@@ -87,7 +87,7 @@ h1{margin:0;font-size:17px;font-weight:700;letter-spacing:.01em;line-height:1.2}
 .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
 .pill .dot{animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.35}}
-.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
 .tabs::-webkit-scrollbar{display:none}
 .tab{
   flex:1 0 auto;
@@ -272,10 +272,10 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .cm-tw{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
 .cm-pr.h{display:none}
 .cm-pr{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px 0;column-gap:0;align-items:start;padding:14px 16px;border-bottom:1px solid var(--line)}
-.cm-pr > span:nth-child(1){grid-column:1/6;order:1;font-size:16px;padding-right:10px}
+.cm-pr > span:nth-child(1){grid-column:1/4;order:1;font-size:16px;padding-right:8px;min-width:0}
 .cm-pr > span:nth-child(1) small{white-space:normal}
 .cm-pr > span:nth-child(n+2):nth-child(-n+6),.cm-pr > span:nth-child(8){grid-column:span 4}
-.cm-pr > span:nth-child(7){grid-column:6/13}
+.cm-pr > span:nth-child(7){grid-column:4/13}
 .cm-pr > span:nth-child(7){order:2;text-align:right;font-size:16px;font-weight:600}
 .cm-pr > span:nth-child(7) .cm-pb{margin-top:6px}
 .cm-pr > span:nth-child(7)::before{display:none!important}
@@ -510,13 +510,14 @@ body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;paddin
 'use strict';
 // stop the pull-down rubber-band at the top of the page
 (function(){
-  let y0 = 0;
-  addEventListener('touchstart',function(e){ y0 = e.touches[0].clientY; },{passive:true});
+  let y0 = 0, x0 = 0;
+  addEventListener('touchstart',function(e){ y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; },{passive:true});
   addEventListener('touchmove',function(e){
     if(e.touches.length!==1 || WALLP==='/wall' || WALLP==='/wall/accounts') return;
     let n = e.target; while(n && n!==document.body){ const cs = getComputedStyle(n); if((cs.overflowY==='auto'||cs.overflowY==='scroll') && n.scrollHeight>n.clientHeight) return; n = n.parentNode; }
     const d = e.touches[0].clientY-y0, el = document.scrollingElement || document.documentElement;
-    if(d>0 && el.scrollTop<=0) e.preventDefault();   /* only the pull-down at the top is blocked; the bounce at the bottom stays */
+    const dx = Math.abs(e.touches[0].clientX-x0);
+    if(d>0 && d>dx*2 && el.scrollTop<=0 && !e.target.closest('.tabs,.ranges,.cm-tw')) e.preventDefault();   /* only the pull-down at the top is blocked; the bounce at the bottom stays */
   },{passive:false});
 })();
 // no pinch or double-tap zoom (iOS ignores the viewport setting, so block its gesture events too)
