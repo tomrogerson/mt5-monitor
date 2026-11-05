@@ -56,7 +56,7 @@ body{
   padding-bottom:env(safe-area-inset-bottom,0px);
 }
 .gutter{
-  max-width:1080px;
+  max-width:720px;
   margin-inline:auto;
   padding-left:max(16px,env(safe-area-inset-left,0px));
   padding-right:max(16px,env(safe-area-inset-right,0px));
@@ -116,12 +116,12 @@ main{padding-top:14px;padding-bottom:40px}
 .note p + p{margin-top:4px}
 
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
-.sum-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.sum-head{display:block}
 .total{font-size:clamp(28px,8.5vw,40px);font-weight:600;letter-spacing:-.02em;line-height:1.1;margin-top:4px}
-.chg{text-align:right;min-width:0;flex:1 1 auto}
+.chg{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 12px;margin-top:8px;text-align:left;min-width:0}
 .chg-val{font-size:18px;font-weight:600}
 .chg-sub{font-size:12px;color:var(--fg-2)}
-.chg-ex{font-size:11px;color:var(--fg-3);min-height:0}
+.chg-ex{font-size:11px;color:var(--fg-3);min-height:0;flex-basis:100%}
 .chg-ex:empty{display:none}
 .chart{position:relative;height:156px;margin-top:14px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .chart svg{display:block}
@@ -237,24 +237,6 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
   .chev{transition:none}
 }
 
-/* ---------- wide screens: summary pinned on the left, accounts on the right ---------- */
-@media (min-width:1100px){
-  .gutter{max-width:1680px}
-  #content:not([hidden]){display:grid;grid-template-columns:400px minmax(0,1fr);gap:0 24px;align-items:start}
-  #content > .panel{position:sticky;top:112px;margin-top:16px}
-  #content > div{min-width:0}
-  .bots,.cards{grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr))}
-  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .shead:first-child,.row2{margin-top:16px}
-}
-@media (min-width:1500px){
-  .gutter{max-width:none;padding-left:32px;padding-right:32px}
-  #content:not([hidden]){grid-template-columns:440px minmax(0,1fr);gap:0 28px}
-}
-/* big monitors: scale everything up a little so the page fills the screen */
-@media (min-width:1800px){ body:not(.wall):not(.wallo){zoom:1.15} }
-@media (min-width:2300px){ body:not(.wall):not(.wallo){zoom:1.35} }
-@media (min-width:3000px){ body:not(.wall):not(.wallo){zoom:1.8} }
 
 /* ---------- /wall: every account on one screen, nothing to tap ---------- */
 .wall .tabs,.wall .chart,.wall .ranges,.wall .row2,.wall .spark,.wall .details,.wall .chev,.wall .flags{display:none!important}
@@ -322,26 +304,6 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .cm-foot{margin:18px 2px 8px;font-size:12px;color:var(--fg-3);line-height:1.5}
 .cm-empty{font-size:13px;color:var(--fg-3);padding:4px 2px}
 
-@media (min-width:1000px){
-  #viewComm{grid-column:1/-1}
-  .cm-sumgrid{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:40px;align-items:start}
-  .cm-sumgrid .cm-ch{margin-top:0}
-  #cmStats{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .cm-list{grid-template-columns:minmax(0,1fr);gap:8px}
-  .cm-colhd,.cm-top{display:grid;grid-template-columns:minmax(200px,1.4fr) repeat(3,minmax(0,1fr)) minmax(120px,1fr) 14px;gap:12px;align-items:center;padding-left:18px;padding-right:18px}
-  .cm-colhd{padding-top:0;padding-bottom:6px;font:600 11px var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3)}
-  .cm-colhd span:nth-child(n+2):nth-child(-n+5){text-align:right}
-  .cm-top{padding-top:12px;padding-bottom:12px}
-  .cm-id,.cm-top .cm-owed,.cm-top .chev{grid-area:auto}
-  .cm-top .cm-grid{display:contents}
-  .cm-grid .label{display:none}
-  .cm-grid .v{margin:0;text-align:right;font-size:15px}
-  .cm-top .cm-owed{text-align:right}
-  .cm-det{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:0 32px;padding:4px 18px 16px}
-  .cm-dl{padding-top:10px}
-  .cm-dr{min-width:0}
-  .cm-mrow{grid-template-columns:70px minmax(0,1fr) minmax(0,1fr)}
-}
 
 /* ---------- /wall: the overview for a 27in wall screen. Laid out at 1920x1080 and scaled to fit by wallFit() ---------- */
 body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;padding-bottom:0}
@@ -382,6 +344,49 @@ body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;paddin
 .wallo .bot .mini .num{font-size:17px;font-weight:500;white-space:nowrap}
 .wallo .bot .mini .sub{font-size:13px}
 </style>
+<!-- desktop layout: only switched on for /desktop and the wall pages; / is the phone layout whatever the screen -->
+<style id="deskcss" media="not all">
+/* ---------- wide screens: summary pinned on the left, accounts on the right ---------- */
+@media (min-width:1100px){
+  .gutter{max-width:1680px}
+  #content:not([hidden]){display:grid;grid-template-columns:400px minmax(0,1fr);gap:0 24px;align-items:start}
+  #content > .panel{position:sticky;top:112px;margin-top:16px}
+  #content > div{min-width:0}
+  .bots,.cards{grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr))}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .shead:first-child,.row2{margin-top:16px}
+}
+@media (min-width:1500px){
+  .gutter{max-width:none;padding-left:32px;padding-right:32px}
+  #content:not([hidden]){grid-template-columns:440px minmax(0,1fr);gap:0 28px}
+}
+/* big monitors: scale everything up a little so the page fills the screen */
+@media (min-width:1800px){ body:not(.wall):not(.wallo){zoom:1.15} }
+@media (min-width:2300px){ body:not(.wall):not(.wallo){zoom:1.35} }
+@media (min-width:3000px){ body:not(.wall):not(.wallo){zoom:1.8} }
+
+@media (min-width:1000px){
+  #viewComm{grid-column:1/-1}
+  .cm-sumgrid{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:40px;align-items:start}
+  .cm-sumgrid .cm-ch{margin-top:0}
+  #cmStats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cm-list{grid-template-columns:minmax(0,1fr);gap:8px}
+  .cm-colhd,.cm-top{display:grid;grid-template-columns:minmax(200px,1.4fr) repeat(3,minmax(0,1fr)) minmax(120px,1fr) 14px;gap:12px;align-items:center;padding-left:18px;padding-right:18px}
+  .cm-colhd{padding-top:0;padding-bottom:6px;font:600 11px var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3)}
+  .cm-colhd span:nth-child(n+2):nth-child(-n+5){text-align:right}
+  .cm-top{padding-top:12px;padding-bottom:12px}
+  .cm-id,.cm-top .cm-owed,.cm-top .chev{grid-area:auto}
+  .cm-top .cm-grid{display:contents}
+  .cm-grid .label{display:none}
+  .cm-grid .v{margin:0;text-align:right;font-size:15px}
+  .cm-top .cm-owed{text-align:right}
+  .cm-det{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:0 32px;padding:4px 18px 16px}
+  .cm-dl{padding-top:10px}
+  .cm-dr{min-width:0}
+  .cm-mrow{grid-template-columns:150px minmax(0,1fr) minmax(0,1fr)}
+}
+</style>
+<script>if(/^\/(desktop|wall)(\/|$)/.test(location.pathname)) document.getElementById('deskcss').media='all';</script>
 </head>
 <body>
 
@@ -961,8 +966,9 @@ function paintSummary(){
   $('total').textContent = money(o.eq);
   const sf = $('sFloat');
   if(sf._tab!==tab){ sf._tab=tab; sf._v=undefined; sf.textContent=''; }   // no flash when switching tabs
-  setPL(sf,o.fl);
-  sf.parentNode.classList.toggle('noflt',!(o.op>0));
+  if(o.op>0){ sf.classList.add('pl'); setPL(sf,o.fl); }
+  else { sf.classList.remove('pl','up','down'); sf.classList.add('flat'); sf.textContent = 'No open trades'; sf._v = undefined; }
+  sf.parentNode.classList.remove('noflt');   // keep the cell (shows £0.00 with no open trades) so the stats grid has no gap
   const st = $('sToday'); st.innerHTML = statText(o.cl,o.bal); st.className = 'v num '+cls(o.cl);
   const sw = $('sWeek'), sm = $('sMonth');
   sw.innerHTML = o.haveWk ? statText(o.wk,o.balWk) : '-'; sw.className = 'v num '+(o.haveWk?cls(o.wk):'');
