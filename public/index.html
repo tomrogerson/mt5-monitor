@@ -44,9 +44,9 @@
   color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:border-box}
-html{background:var(--bg);overscroll-behavior:none;touch-action:pan-x pan-y}
+html{background:var(--bg);touch-action:pan-x pan-y}
 body{
-  margin:0;overscroll-behavior:none;
+  margin:0;
   background:var(--bg);
   color:var(--fg);
   font-family:var(--font-body);
@@ -271,8 +271,11 @@ select{font:500 16px var(--font-body);color:var(--fg);background:var(--surface);
 .cm-mrow.sub small{font:500 11px var(--font-body);color:var(--fg-3)}
 .cm-tw{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
 .cm-pr.h{display:none}
-.cm-pr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 8px;align-items:start;padding:14px 16px;border-bottom:1px solid var(--line)}
-.cm-pr > span:nth-child(1){grid-column:1/3;order:1;font-size:16px}
+.cm-pr{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px 0;column-gap:0;align-items:start;padding:14px 16px;border-bottom:1px solid var(--line)}
+.cm-pr > span:nth-child(1){grid-column:1/6;order:1;font-size:16px;padding-right:10px}
+.cm-pr > span:nth-child(1) small{white-space:normal}
+.cm-pr > span:nth-child(n+2):nth-child(-n+6),.cm-pr > span:nth-child(8){grid-column:span 4}
+.cm-pr > span:nth-child(7){grid-column:6/13}
 .cm-pr > span:nth-child(7){order:2;text-align:right;font-size:16px;font-weight:600}
 .cm-pr > span:nth-child(7) .cm-pb{margin-top:6px}
 .cm-pr > span:nth-child(7)::before{display:none!important}
@@ -328,7 +331,16 @@ body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;paddin
 .wallo #content:not([hidden]){flex:1;min-height:0;display:grid;grid-template-columns:540px minmax(0,1fr);gap:26px;align-items:stretch;margin-top:18px}
 .wallo #content > .panel{position:static;margin:0;display:flex;flex-direction:column;min-height:0;padding:24px}
 .wallo .sum-head{align-items:flex-start}
-.wallo .total{font-size:62px}
+.wallo .total{font-size:46px}
+.wallo .sum-head{display:block}
+.wallo .chg{flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:0 14px;text-align:left;margin-top:8px}
+.wallo .chg-sub span{display:inline}
+.wallo .chg-sub span+span::before{content:'·';margin:0 7px}
+.wallo .chg-ex{flex-basis:auto}
+.wallo .bot{position:relative}
+.wallo .bot .flags{position:absolute;top:20px;right:22px;margin:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.wallo .bot .mrow{margin-top:0}
+.wallo .bot .flags:not([hidden]):has(> :nth-child(2)) ~ .mrow{margin-top:44px}
 .wallo .label{font-size:13px}
 .wallo .chg-val{font-size:26px}
 .wallo .chg-sub,.wallo .chg-ex{font-size:15px}
@@ -343,10 +355,10 @@ body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;paddin
 .wallo .bot{display:flex;flex-direction:column;padding:22px 24px;cursor:default;min-height:0;overflow:hidden}
 .wallo .bot .aname{font-size:28px}
 .wallo .bot .bn,.wallo .tag{font-size:15px}
-.wallo .bot .mrow{margin-top:14px}
+
 .wallo .bot .eq{font-size:33px;white-space:nowrap}
 .wallo .bot .fl{font-size:16px;white-space:nowrap}
-.wallo .bot .flags{margin-top:12px}
+.wallo .bot .flags[hidden]{display:none}
 .wallo .bot .flags .flag,.wallo .bot .flags > *{font-size:15px}
 .wallo .bot .spark{flex:1;min-height:56px;height:auto;margin:16px 6px 0 0}
 .wallo .bot .spark svg{height:100%}
@@ -485,7 +497,7 @@ body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;paddin
       <div class="cm-list" id="cmList"></div>
       <div class="cm-total" id="cmTotal"></div>
       <div id="cmCapWrap" hidden>
-        <div class="shead"><span class="label">Initial capital returned</span><span class="num" id="cmCapSub">everything in and everything out, less your commission</span></div>
+        <div class="shead"><span class="label" style="white-space:nowrap">Initial capital returned</span></div>
         <div class="cm-tw"><div class="cm-pt" id="cmCap"></div></div>
       </div>
       <div class="cm-foot">Commission is the rate times each month's closed profit. A losing month takes the same percentage off, so a person can be in credit. Owed is commission on finished months less payments received. Bot 2 months to October 2026 come from your Star Bot Tracker (from Nov 2025); Bot 1 and later months come from each account's MT5 history (Bot 1 from Apr 2025).</div>
@@ -496,7 +508,7 @@ body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;paddin
 <script>
 (function(){
 'use strict';
-// stop the page rubber-banding at the top and bottom (iOS ignores overscroll-behavior in some cases)
+// stop the pull-down rubber-band at the top of the page
 (function(){
   let y0 = 0;
   addEventListener('touchstart',function(e){ y0 = e.touches[0].clientY; },{passive:true});
@@ -504,7 +516,7 @@ body.wallo{overflow:hidden;display:flex;flex-direction:column;cursor:none;paddin
     if(e.touches.length!==1 || WALLP==='/wall' || WALLP==='/wall/accounts') return;
     let n = e.target; while(n && n!==document.body){ const cs = getComputedStyle(n); if((cs.overflowY==='auto'||cs.overflowY==='scroll') && n.scrollHeight>n.clientHeight) return; n = n.parentNode; }
     const d = e.touches[0].clientY-y0, el = document.scrollingElement || document.documentElement;
-    if((d>0 && el.scrollTop<=0) || (d<0 && el.scrollTop+innerHeight>=el.scrollHeight-1)) e.preventDefault();
+    if(d>0 && el.scrollTop<=0) e.preventDefault();   /* only the pull-down at the top is blocked; the bounce at the bottom stays */
   },{passive:false});
 })();
 // no pinch or double-tap zoom (iOS ignores the viewport setting, so block its gesture events too)
@@ -1176,7 +1188,7 @@ function paintAll(){
 /* ---------- commission tab ---------- */
 let CM = null, cmOpen = {}, cmAt = 0, cmBot = 'all';
 function mval(k,n,bot){
-  if(k==='tdy'||k==='wk'){ const o=(CM.short||{})[n]; if(!o) return null; if(bot && bot!=='all') return o[bot]?o[bot][k]:null; let t=0,h=false; for(const b in o){t+=o[b][k];h=true;} return h?t:null; }
+  if(k==='tdy'||k==='yst'||k==='wk'){ const o=(CM.short||{})[n]; if(!o) return null; if(bot && bot!=='all') return o[bot]&&typeof o[bot][k]==='number'?o[bot][k]:null; let t=0,h=false; for(const b in o){ if(typeof o[b][k]==='number'){t+=o[b][k];h=true;} } return h?t:null; }
   const o = (CM.months[k]||{})[n]; if(!o) return null; if(bot && bot!=='all') return typeof o[bot]==='number' ? o[bot] : null; let t=0; for(const b in o) t+=o[b]; return t; }
 const CMON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function mLabel(k){const p=k.split('-');return CMON[+p[1]-1]+' '+p[0].slice(2);}
@@ -1208,7 +1220,7 @@ function commCalc(){
       rows.push({k:k,profit:profit,comm:comm,cur:k===CM.now,src:sr});
     });
     const short = {};
-    ['tdy','wk'].forEach(function(k){ const pr = mval(k,n,bot); if(pr!==null) short[k] = {k:k,profit:pr,comm:rate>0?pr*rate:0}; });
+    ['tdy','yst','wk'].forEach(function(k){ const pr = mval(k,n,bot); if(pr!==null) short[k] = {k:k,profit:pr,comm:rate>0?pr*rate:0}; });
     const sum = (f,fn) => rows.filter(f).reduce((t,r) => t+fn(r),0);
     const pays = (CM.payments[n]||[]).slice().sort((x,y) => x[0]<y[0]?1:-1);
     const paid = pays.reduce((t,x) => t+x[1],0), done = sum(r=>!r.cur,r=>r.comm);
@@ -1221,7 +1233,7 @@ function commCalc(){
 }
 function prevMonth(k){const p=k.split('-').map(Number);return p[1]===1?(p[0]-1)+'-12':p[0]+'-'+pad2(p[1]-1);}
 function rowFor(p,sel){
-  if(sel==='tdy'||sel==='wk') return p.short[sel];
+  if(sel==='tdy'||sel==='yst'||sel==='wk') return p.short[sel];
   if(sel!=='all') return p.rows.filter(r => r.k===sel)[0];
   if(!p.rows.length) return undefined;
   return {k:'all',profit:p.rows.reduce((t,r) => t+r.profit,0),comm:p.rows.reduce((t,r) => t+r.comm,0)};
@@ -1250,7 +1262,7 @@ function personHTML(p,i,sel){
     p.rows.slice().reverse().forEach(function(r){
       h += '<div class="cm-mrow"><span>'+mLabel(r.k)+(r.cur?'*':'')+'</span><span class="r num '+cls(r.profit)+'">'+money(r.profit)+'</span><span class="r num '+cls(r.comm)+'">'+(Math.abs(r.comm)>0.005?money(r.comm):'—')+'</span></div>';
       if(r.src && r.src.length>1) r.src.forEach(function(x){
-        h += '<div class="cm-mrow sub"><span>'+esc(x[1])+'<small> '+esc(x[0])+'</small></span><span class="r num '+cls(x[2])+'">'+money(x[2])+'</span><span class="r num '+cls(x[2])+'">'+(p.rate>0?money(x[2]*p.rate):'—')+'</span></div>';
+        h += '<div class="cm-mrow sub"><span>'+esc(String(x[1]).replace(/\s*#\d+$/,''))+'<small> '+esc(x[0])+'</small></span><span class="r num '+cls(x[2])+'">'+money(x[2])+'</span><span class="r num '+cls(x[2])+'">'+(p.rate>0?money(x[2]*p.rate):'—')+'</span></div>';
       });
     });
     h += '</div></div>';
@@ -1308,14 +1320,14 @@ function paintCap(){
 let cmSel = null;
 function paintComm(keepFocus){
   if(!CM || tab!=='commission') return;
-  const ppl = commCalc().filter(p => p.rows.length || p.short.tdy || p.short.wk);
+  const ppl = commCalc().filter(p => p.rows.length || p.short.tdy || p.short.yst || p.short.wk);
   const keys = {}; ppl.forEach(p => p.rows.forEach(r => { keys[r.k] = 1; })); keys[CM.now] = 1;
   const ks = Object.keys(keys).sort().reverse();
-  if(!cmSel || (cmSel!=='all' && cmSel!=='tdy' && cmSel!=='wk' && !keys[cmSel])) cmSel = CM.now;
+  if(!cmSel || (cmSel!=='all' && cmSel!=='tdy' && cmSel!=='yst' && cmSel!=='wk' && !keys[cmSel])) cmSel = CM.now;
   const bs = $('cmBot');
   bs.innerHTML = '<option value="all">All bots</option>'+CM.bots.map(b => '<option value="'+esc(b)+'"'+(b===cmBot?' selected':'')+'>'+esc(b)+'</option>').join('');
   const selEl = $('cmMonth');
-  selEl.innerHTML = '<option value="tdy"'+(cmSel==='tdy'?' selected':'')+'>Today</option><option value="wk"'+(cmSel==='wk'?' selected':'')+'>This week</option><option value="all"'+(cmSel==='all'?' selected':'')+'>All time</option>'+ks.map(k => '<option value="'+k+'"'+(k===cmSel?' selected':'')+'>'+mLabel(k)+(k===CM.now?' (so far)':'')+'</option>').join('');
+  selEl.innerHTML = '<option value="tdy"'+(cmSel==='tdy'?' selected':'')+'>Today</option><option value="yst"'+(cmSel==='yst'?' selected':'')+'>Yesterday</option><option value="wk"'+(cmSel==='wk'?' selected':'')+'>This week</option><option value="all"'+(cmSel==='all'?' selected':'')+'>All time</option>'+ks.map(k => '<option value="'+k+'"'+(k===cmSel?' selected':'')+'>'+mLabel(k)+(k===CM.now?' (so far)':'')+'</option>').join('');
   const live = ppl.filter(p => p.active || CM.selfPaid.indexOf(p.name)>=0).sort((a,b) => ((b.name==='Tom')-(a.name==='Tom')) || b.all-a.all);   // your own accounts first
   const old = ppl.filter(p => !(p.active || CM.selfPaid.indexOf(p.name)>=0)).sort((a,b) => b.all-a.all);
   const all = live.concat(old);
