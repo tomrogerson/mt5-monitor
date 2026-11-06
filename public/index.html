@@ -639,6 +639,7 @@ function mapAcct(x,idx,open){
   a.closedSum = (typeof x.closedSum==='number') ? x.closedSum : a.closed.reduce((s,t)=>s+t.pnl,0);
   a.closedN = (typeof x.closedCount==='number') ? x.closedCount : a.closed.length;
   a.mdd = x.dd || null;
+  a.yst = (typeof x.pnlYesterday==='number') ? x.pnlYesterday : null;
   a.lm = (typeof x.pnlLastMonth==='number') ? x.pnlLastMonth : null;
   a.d90 = (typeof x.pnl90==='number') ? x.pnl90 : null;
   a.ytd = (typeof x.pnlYear==='number') ? x.pnlYear : null;
@@ -841,7 +842,7 @@ function longCell(label,v,bal){
   return '<div><div class="label">'+label+'</div><div class="num '+cls(v)+'">'+money(v,{sign:true,dec:0})+(r===null?'':'<span class="pp">'+pct(r)+'</span>')+'</div></div>';
 }
 function detailsHTML(a){
-  let h = '<div class="mini mini-long">'+longCell('Last month',a.lm,a.bal)+longCell('Last 90 d',a.d90,a.bal)+longCell('This year',a.ytd,a.bal)+'<div></div></div>'
+  let h = '<div class="mini mini-long">'+longCell('Yesterday',a.yst,a.bal)+longCell('Last month',a.lm,a.bal)+longCell('Last 90 d',a.d90,a.bal)+longCell('This year',a.ytd,a.bal)+'</div>'
     + '<div class="dhead"><span class="label">Margin level</span><span class="num '+(a.connected && a.ml!==null && a.ml<300?'warn':'mut')+'">'+(a.ml===null?'—':nf0.format(a.ml)+'%')+'</span></div>'
     + '<div class="dhead"><span class="label">Margin used</span><span class="num mut">'+(a.margin?money(a.margin):'—')+'</span></div>'
     + (a.mdd ? '<div class="dhead gap"><span class="label">Biggest drawdown · this week</span><span class="num '+(a.mdd.week.amt>0?'down':'mut')+'">'+(a.mdd.week.amt>0?MINUS+money(a.mdd.week.amt)+' · '+a.mdd.week.pct.toFixed(2)+'%':'None')+'</span></div>'
