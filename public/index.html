@@ -861,10 +861,10 @@ function detailsHTML(a){
     const wsl = a.pos.filter(p => p.sl && p.slPnl !== null), nsl = a.pos.length - wsl.length;
     const wtp = a.pos.filter(p => p.tp && p.tpPnl !== null);
     if(wsl.length){ const t = wsl.reduce((x,p) => x+p.slPnl, 0);
-      h += '<div class="dhead"><span class="label">If every stop loss hits</span><span class="num '+cls(t)+'">'+money(t,{sign:true})+'</span></div>'
+      h += '<div class="dhead"><span class="label">If every stop loss hits</span><span class="num '+cls(t)+'">'+money(t,{sign:true})+(a.bal>0?' · '+pct(t/a.bal*100):'')+'</span></div>'
         + (nsl ? '<p class="none">'+nsl+' of '+a.pos.length+' positions have no stop loss, so they are not counted.</p>' : ''); }
     if(wtp.length){ const t = wtp.reduce((x,p) => x+p.tpPnl, 0);
-      h += '<div class="dhead"><span class="label">If every take profit hits</span><span class="num '+cls(t)+'">'+money(t,{sign:true})+'</span></div>'; }
+      h += '<div class="dhead"><span class="label">If every take profit hits</span><span class="num '+cls(t)+'">'+money(t,{sign:true})+(a.bal>0?' · '+pct(t/a.bal*100):'')+'</span></div>'; }
   }
   if(!a.pos.length) h += '<p class="none">No open positions.</p>';
   else h += a.pos.map(function(p){
