@@ -204,8 +204,21 @@ def collect(name, group, tz_name, offset_hours, state):
 
     positions = mt5.positions_get() or []
     pos_out = []
+    def at_price(p, price):
+        # profit this position would show if closed at `price` (account currency), swap included; None if MT5 can't work it out
+        if not price:
+            return None
+        act = mt5.ORDER_TYPE_BUY if p.type == mt5.POSITION_TYPE_BUY else mt5.ORDER_TYPE_SELL
+        try:
+            v = mt5.order_calc_profit(act, p.symbol, p.volume, p.price_open, price)
+        except Exception:
+            v = None
+        return None if v is None else round(v + p.swap, 2)
+
     for p in positions:
         pos_out.append({
+            "sl": p.sl or 0, "tp": p.tp or 0,
+            "slPnl": at_price(p, p.sl), "tpPnl": at_price(p, p.tp),
             "ticket": str(p.ticket),
             "symbol": p.symbol,
             "dir": 1 if p.type == mt5.POSITION_TYPE_BUY else -1,
