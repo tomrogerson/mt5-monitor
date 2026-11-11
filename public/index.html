@@ -873,7 +873,7 @@ function detailsHTML(a){
       + '<div class="p1"><span class="side '+(p.dir>0?'buy':'sell')+'">'+(p.dir>0?'BUY':'SELL')+'</span><strong>'+esc(p.sym)+'</strong><span class="num mut">'+p.lots.toFixed(2)+' lots</span></div>'
       + '<div class="num '+cls(p.pnl)+'">'+money(p.pnl,{sign:true})+'</div>'
       + '<div class="p2 num">'+p.open.toFixed(dg)+' → '+p.cur.toFixed(dg)+'</div>'
-      + '<div class="p2 num r">'+((p.sl||p.tp)?(p.sl?'SL '+p.sl.toFixed(dg)+(p.slPnl!==null?' · '+money(p.slPnl,{sign:true}):''):'')+(p.sl&&p.tp?'<br>':'')+(p.tp?'TP '+p.tp.toFixed(dg)+(p.tpPnl!==null?' · '+money(p.tpPnl,{sign:true}):''):''):'#'+esc(p.ticket))+'</div>'
+      + '<div class="p2 num r">'+((p.sl||p.tp)?(p.sl?'SL '+(p.slPnl!==null?money(p.slPnl,{sign:true}):'set'):'')+(p.sl&&p.tp?'<br>':'')+(p.tp?'TP '+(p.tpPnl!==null?money(p.tpPnl,{sign:true}):'set'):''):'#'+esc(p.ticket))+'</div>'
       + '</div>';
   }).join('');
   h += '<div class="dhead gap"><span class="label">Closed today ('+a.closedN+')</span><span class="num '+cls(a.closedSum)+'">'+money(a.closedSum,{sign:true})+'</span></div>';
