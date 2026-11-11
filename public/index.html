@@ -635,7 +635,7 @@ function mapAcct(x,idx,open){
     connected:!!x.connected,demo:!!x.demo,lostAt:x.lostAt||0,open:!!open,
     bal:x.balance,margin:x.margin||0,credit:x.credit||0,equity:x.equity,float:x.equity-x.balance-(x.credit||0),
     ml:(x.marginLevel===undefined||x.marginLevel===null)?null:x.marginLevel,
-    pos:(x.positions||[]).map(p=>({ticket:p.ticket,sym:p.symbol,dir:p.dir,lots:p.lots,open:p.open,cur:p.cur,pnl:p.pnl})),
+    pos:(x.positions||[]).map(p=>({ticket:p.ticket,sym:p.symbol,dir:p.dir,lots:p.lots,open:p.open,cur:p.cur,pnl:p.pnl,sl:p.sl||0,tp:p.tp||0,slPnl:typeof p.slPnl==='number'?p.slPnl:null,tpPnl:typeof p.tpPnl==='number'?p.tpPnl:null})),
     closed:(x.closed||[]).map(t=>({t:t.t,sym:t.symbol,dir:t.dir,lots:t.lots,pnl:t.pnl}))
   };
   if(a.g==='bot2' && a.connected && a.pos.length) a.exit = exitEst(x,a.pos); else a.exit = null;
@@ -857,6 +857,15 @@ function detailsHTML(a){
         return '<div class="dhead"><span class="label">Est. exit · '+(e.dir>0?'BUY':'SELL')+' ×'+e.n+(e.low?' (rough)':'')+'</span><span class="num '+(e.done?'up':'mut')+'">'+val+'</span></div>';
       }).join('') : '');
   if(!a.connected) h += '<p class="none warn">Prices frozen. Last update '+ago(a.lostAt)+' ago.</p>';
+  if(a.pos.length){
+    const wsl = a.pos.filter(p => p.sl && p.slPnl !== null), nsl = a.pos.length - wsl.length;
+    const wtp = a.pos.filter(p => p.tp && p.tpPnl !== null);
+    if(wsl.length){ const t = wsl.reduce((x,p) => x+p.slPnl, 0);
+      h += '<div class="dhead"><span class="label">If every stop loss hits</span><span class="num '+cls(t)+'">'+money(t,{sign:true})+'</span></div>'
+        + (nsl ? '<p class="none">'+nsl+' of '+a.pos.length+' positions have no stop loss, so they are not counted.</p>' : ''); }
+    if(wtp.length){ const t = wtp.reduce((x,p) => x+p.tpPnl, 0);
+      h += '<div class="dhead"><span class="label">If every take profit hits</span><span class="num '+cls(t)+'">'+money(t,{sign:true})+'</span></div>'; }
+  }
   if(!a.pos.length) h += '<p class="none">No open positions.</p>';
   else h += a.pos.map(function(p){
     const dg = priceDigits(p.open||p.cur);
@@ -864,7 +873,7 @@ function detailsHTML(a){
       + '<div class="p1"><span class="side '+(p.dir>0?'buy':'sell')+'">'+(p.dir>0?'BUY':'SELL')+'</span><strong>'+esc(p.sym)+'</strong><span class="num mut">'+p.lots.toFixed(2)+' lots</span></div>'
       + '<div class="num '+cls(p.pnl)+'">'+money(p.pnl,{sign:true})+'</div>'
       + '<div class="p2 num">'+p.open.toFixed(dg)+' → '+p.cur.toFixed(dg)+'</div>'
-      + '<div class="p2 num r">#'+esc(p.ticket)+'</div>'
+      + '<div class="p2 num r">'+((p.sl||p.tp)?(p.sl?'SL '+p.sl.toFixed(dg)+(p.slPnl!==null?' · '+money(p.slPnl,{sign:true}):''):'')+(p.sl&&p.tp?'<br>':'')+(p.tp?'TP '+p.tp.toFixed(dg)+(p.tpPnl!==null?' · '+money(p.tpPnl,{sign:true}):''):''):'#'+esc(p.ticket))+'</div>'
       + '</div>';
   }).join('');
   h += '<div class="dhead gap"><span class="label">Closed today ('+a.closedN+')</span><span class="num '+cls(a.closedSum)+'">'+money(a.closedSum,{sign:true})+'</span></div>';
