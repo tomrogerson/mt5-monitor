@@ -673,7 +673,9 @@ function flagsHTML(f){return f.map(x => '<span class="flag '+x.k+'">'+x.text+'</
 
 /* ---------- aggregation: accounts of one bot are added together ---------- */
 /* PU Prime (Ting Tong) trades alone do not make the Bot 2 summary card show as active */
-const QUIET_LOGINS = new Set(['33801407']);
+const QUIET_LOGINS = new Set(['33801407','11579310']);   /* PU Prime (Ting Tong), Sparki */
+/* Sparki's account never raises the group's drawdown warning (its own card still shows it) */
+const NO_DD_LOGINS = new Set(['11579310']);
 function aggregate(list){
   const o = {n:list.length,eq:0,fl:0,cl:0,wk:0,mo:0,haveWk:false,bal:0,balWk:0,lm:0,balLm:0,haveLm:false,d90:0,balD:0,haveD:false,ytd:0,balY:0,haveY:false,op:0,opx:0,conn:0,low:null,lowName:'',att:0,worst:0,from:0,
              list:list,series:new Array(N).fill(null),c:{off:0,down:0,warn:0}};
@@ -687,8 +689,9 @@ function aggregate(list){
     if(a.ytd!==null){o.ytd+=a.ytd;o.haveY=true;o.balY+=a.bal;}
     if(a.connected) o.conn++;
     if(a.connected && a.ml!==null && (o.low===null||a.ml<o.low)){o.low=a.ml;o.lowName=a.name;}
-    flags(a).forEach(x => o.c[x.k]++);
-    const s = sev(a);
+    const nodd = NO_DD_LOGINS.has(String(a.login));
+    flags(a).forEach(x => { if(!(nodd && x.k==='down')) o.c[x.k]++; });
+    const s = nodd ? (!a.connected ? 3 : (a.ml!==null && a.ml<300 ? 1 : 0)) : sev(a);
     if(s>0) o.att++;
     if(s>o.worst) o.worst=s;
     f = list.indexOf(a)===0 ? firstIdx(a.series) : Math.min(f,firstIdx(a.series));
